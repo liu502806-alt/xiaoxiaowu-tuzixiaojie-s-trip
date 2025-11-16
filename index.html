@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>萧小五/兔子小姐の奇妙旅途</title>
+
+<style>
+body {
+  background-image: url("indexbg.jpg"); 
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: "Hiragino Maru Gothic Pro", "PingFang SC", "Microsoft YaHei", sans-serif;
+  overflow: hidden;
+}
+
+/* 樱花飘落 */
+@keyframes sakura {
+  0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(360deg); opacity: 0.3; }
+}
+
+.sakura {
+  position: fixed;
+  top: -10vh;
+  font-size: 20px;
+  animation: sakura 6s linear infinite;
+  color: #ff7aa8;
+  opacity: 0.8;
+}
+
+/* 卡片 */
+.card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(8px);
+  border-radius: 25px;
+  padding: 40px;
+  text-align: center;
+  width: 80%;
+  max-width: 390px;
+  box-shadow: 0 8px 20px rgba(255, 180, 200, 0.45);
+  animation: fadeIn 1.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+h1 {
+  color: #ff6b9d;
+  font-size: 28px;
+  margin-bottom: 15px;
+}
+
+p {
+  color: #6a5d6e;
+  font-size: 17px;
+}
+
+button {
+  background: #ff8fb7;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 20px;
+  margin-top: 20px;
+  color: white;
+  font-size: 18px;
+  box-shadow: 0 5px 12px rgba(255, 130, 170, 0.4);
+  cursor: pointer;
+  transition: 0.25s;
+}
+
+button:hover {
+  background: #ff70a5;
+  transform: translateY(-3px) scale(1.05);
+}
+</style>
+</head>
+<body>
+
+<!-- 樱花 15 片 -->
+<script>
+for (let i = 0; i < 15; i++) {
+  const sakura = document.createElement("div");
+  sakura.className = "sakura";
+  sakura.style.left = Math.random() * 100 + "vw";
+  sakura.style.animationDelay = Math.random() * 5 + "s";
+  sakura.innerHTML = "🌸";
+  document.body.appendChild(sakura);
+}
+</script>
+
+<div class="card">
+  <h1>🐱萧小五/兔子小姐🐰 の奇妙旅途</h1>
+  <p>在樱花飘落的季节，我们即将踏上奇妙的冒险。</p>
+   <button onclick="location.href='index2.html'">开始旅程</button>
+</div>
+
+<script>
+function start() {
+  window.location.href = "game.html";  
+}
+</script>
+
+<!-- 背景音乐 -->
+<audio id="bgm" src="index.mp3" autoplay loop></audio>
+
+<!-- 右上角音乐按钮（注意 class 名字！） -->
+<div id="muteButton" class="music-btn">🔊</div>
+
+<style>
+/* 右上角小按钮 */
+.music-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 55px;
+  height: 55px;
+  background: #ffe6f2;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(255, 180, 210, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  animation: float 3s ease-in-out infinite;
+  transition: .3s;
+  font-size: 26px;
+  user-select: none;
+  z-index: 9999;
+}
+
+.music-btn:hover {
+  transform: scale(1.1);
+  background: #ffd4ea;
+}
+
+/* 呼吸浮动动画 */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+/* 播放时旋转动画 */
+.playing {
+  animation: spin 3s linear infinite, float 3s ease-in-out infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>
+
+<script>
+// 自动播放（需要任意一次点击）
+document.addEventListener("click", function () {
+  const bgm = document.getElementById("bgm");
+  if (bgm.paused) bgm.play();
+}, { once: true });
+
+const bgm = document.getElementById("bgm");
+const muteBtn = document.getElementById("muteButton");
+
+// 点击静音 / 取消静音
+muteBtn.addEventListener("click", () => {
+  if (bgm.muted) {
+    bgm.muted = false;
+    muteBtn.textContent = "🔊";   // 声音开
+    muteBtn.classList.add('playing');
+  } else {
+    bgm.muted = true;
+    muteBtn.textContent = "🔇";   // 静音
+    muteBtn.classList.remove('playing');
+  }
+});
+</script>
+
+</body>
+</html>
