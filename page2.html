@@ -5,24 +5,28 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
 <title>星光拾梦 — 挥金之夜（page2）</title>
 <style>
-/* ================= 全局样式（中文注释） ================= */
-/* 页面和背景（body 背景使用 images/bg.jpg 或 images/background.jpg，按你放的名字） */
+
+/* 页面和背景 */ /* page and bg set up*/
+
 :root{
   --dialog-bg: rgba(255,255,255,0.78); /* 对话框不透明度 */
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:300%;width:300%;overflow:hidden;font-family:"PingFang SC","Helvetica Neue",Arial,sans-serif;background:#050014}
+html,body{height:100%;width:100%;overflow:hidden;font-family:"PingFang SC","Helvetica Neue",Arial,sans-serif;background:#050014}
 body{
-  /* 请把项目中的背景图命名为 images/background.jpg（或 images/bg.jpg），路径相对 page2.html */
-  background: center/cover no-repeat fixed url('images/background.jpg');
+  background-image: url('background.jpg');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   -webkit-font-smoothing:antialiased;
   -moz-osx-font-smoothing:grayscale;
 }
 
-/* 画布占满整个页面（透明）*/
+/* 画布占满整个页面（透明）*//* transparent bg */
 #gameCanvas{position:fixed;inset:0;z-index:2;display:block}
 
-/* HUD（分数 + 进度条）置顶居中 */
+/* HUD（分数 + 进度条）置顶居中 */ /* HUD Score & progress bar */
 .hud{
   position:fixed;top:18px;left:50%;transform:translateX(-50%);
   z-index:8;display:flex;align-items:center;gap:14px;
@@ -32,10 +36,10 @@ body{
 .progress-wrap{width:180px;height:12px;background:rgba(255,255,255,0.08);border-radius:999px;padding:2px}
 .progress-bar{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,#ffd86a,#ff9ad6);box-shadow:0 6px 18px rgba(255,120,190,0.08);transition:width .28s ease}
 
-/* 返回主页按钮 */
+/* 返回主页按钮 *//* Home bottom*/
 #backBtn{position:fixed;left:18px;top:18px;z-index:9;background:rgba(255,255,255,0.08);color:#fff;border:none;border-radius:12px;padding:8px 12px;cursor:pointer;backdrop-filter:blur(4px)}
 
-/* 开始覆盖层（点击开始后触发开场特效，再隐藏） */
+/* 开始覆盖层（点击开始后触发开场特效，再隐藏） *//* intro layers */
 .start-overlay{
   position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
   background:linear-gradient(180deg,rgba(5,3,12,0.6),rgba(3,1,9,0.7));
@@ -48,14 +52,14 @@ body{
 .start-card h2{font-size:20px;margin-bottom:6px}
 .start-btn{margin-top:12px;padding:10px 26px;border-radius:12px;border:none;background:linear-gradient(90deg,#ffb3e6,#ff77c5);color:white;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(255,110,180,0.18)}
 
-/* 对话框（已改为更不透明） */
+/* 对话框 *//* dialogbox */
 .dialog{
   position:fixed;left:50%;bottom:48px;transform:translateX(-50%);z-index:18;
   display:flex;align-items:center;gap:12px;padding:12px 18px;border-radius:14px;
-  background: var(--dialog-bg); /* 半透明但偏不透明 */
+  background: var(--dialog-bg); 
   backdrop-filter: blur(10px);
   box-shadow:0 12px 40px rgba(0,0,0,0.45);
-  color:#1b0a1a; /* 对比为深色文字 */
+  color:#1b0a1a; 
   max-width:86vw;
   visibility:hidden;opacity:0;transition:opacity .45s ease, transform .35s ease;
 }
@@ -67,10 +71,10 @@ body{
 .dialog .txt .name{font-weight:800;color:#ffdfe9;margin-bottom:6px}
 .dialog .txt .line{font-size:15px;line-height:1.3;color:#fff}
 
-/* 星光特效容器（DOM 内生成）*/
+/* 星光特效容器（DOM 内生成）*/ /* Star effect）*/
 .stars-layer{position:fixed;inset:0;pointer-events:none;z-index:15}
 
-/* 单个星光（通过 JS 动态创建） */
+/* 单个星光（通过 JS 动态创建） *//* single star*/
 .star{
   position:absolute;
   border-radius:50%;
@@ -87,7 +91,7 @@ body{
   100%{opacity:0;transform:translateY(-80px) scale(0.8)}
 }
 
-/* 小屏优化 */
+/* 小屏优化 *//* small screen optimization */
 @media (max-width:420px){
   .hud{gap:10px;padding:6px 10px}
   .progress-wrap{width:120px}
@@ -96,10 +100,10 @@ body{
 </style>
 </head>
 <body>
-  <!-- 返回按钮 -->
+  <!-- 返回按钮 --> <!-- back bottom -->
   <button id="backBtn" onclick="location.href='index.html'">返回主页</button>
 
-  <!-- 顶部 HUD：分数与进度 -->
+  <!-- 顶部 HUD：分数与进度 --><!-- Top HUD：Score & progress bar -->
   <div class="hud" role="status" aria-live="polite">
     <div id="score">💰 0</div>
     <div class="progress-wrap" title="进度（收集 5 个触发一句话）">
@@ -107,49 +111,47 @@ body{
     </div>
   </div>
 
-  <!-- 画布：绘制金币、篮子、光效（canvas 透明，背景由 body 提供） -->
+  <!-- 画布：绘制金币、篮子、光效 -->  <!-- Elements drown in Canvas-->
   <canvas id="gameCanvas"></canvas>
 
-  <!-- 星光 DOM 层：开场时创建若干星光元素并播放动画 -->
+  <!-- 星光 DOM 层：开场时创建若干星光元素并播放动画 --> <!-- Start Elements drown in Canvas-->
   <div class="stars-layer" id="starsLayer" aria-hidden="true"></div>
 
-  <!-- 开始覆盖（必须的用户交互，用于触发音频与开场特效） -->
+  <!-- 开始覆盖（必须的用户交互，用于触发音频与开场特效） -->  <!-- Start (interact is needed to activate the audio） -->
   <div class="start-overlay" id="startOverlay" role="dialog" aria-modal="true">
     <div class="start-card">
       <h2>星光拾梦 · 挥金之夜</h2>
       <div style="color:#ffeef9;font-size:14px;margin-top:6px">用鼠标 / 手指移动头冠，接住下落的星光</div>
       <button class="start-btn" id="startBtn">开始</button>
-    </div>
-  </div>
 
-  <!-- 对话框：头像 + 文本（show 类控制显示/隐藏） -->
+  <!-- 对话框：只保留一份，避免重复 id --> 
   <div class="dialog" id="dialogBox" aria-hidden="true">
-    <img id="dialogPic" src="images/pic2Files.jpg" alt="头像">
+    <img id="dialogPic" src="lc1.jpg" alt="头像">
     <div class="txt">
       <div class="name" id="dialogName">萧小五</div>
       <div class="line" id="dialogLine">——</div>
     </div>
   </div>
+
+    </div>
+  </div>
 <script>
 
-/* ================== 配置区（可按需调整） ================== */
-/* 注意：图片请放在 images/ 文件夹，名称必须匹配 */
+/* ================== 配置区（可按需调整） ================== *//* === Set up === */
 const CONFIG = {
-  imagesPath: 'images/',
-  coinFiles: ['coin.png', 'coin2.png'],  // ← 注意这里要有逗号
-  basketFile: 'basket.png',        // 篮子图（如果没有，会用简单矩形代替）
-  pic1Files: ['xy1.jpg', 'xy2.jpg', 'xy3.jpg'],  // 萧小五的多张头像
-  pic2Files: ['lc1.jpg', 'lc2.jpg', 'lc3.jpg'],  // 兔子小姐的多张头像
-  neededPerDialogue: 5,            // 每收集多少个金币触发一句话
-  spawnInterval: 900,              // 毫秒：生成金币间隔
-  starMin: 15,                     // 开场星光最少数量
-  starMax: 20,                     // 开场星光最多数量
-  introDuration: 2000              // 开场特效时长（毫秒）
+  imagesPath: '',                  // 若图片和 HTML 在同一目录，留空；若在 ./images/ 则改为 './images/'
+  coinFiles: ['coin.png', 'coin2.png'],
+  basketFile: 'basket.png',
+  pic1Files: ['xy1.jpg', 'xy2.jpg', 'xy3.jpg'],
+  pic2Files: ['lc1.jpg', 'lc2.jpg', 'lc3.jpg'],
+  neededPerDialogue: 5,
+  spawnInterval: 900,
+  starMin: 15,
+  starMax: 20,
+  introDuration: 2000
 };
 
 /* ========== 台词（根据选择的头像显示不同文本） ========== */
-/* pic1 -> 名字 "萧小五" ; pic2 -> 名字 "兔子小姐" */
-/* 文本为对“我”的称呼与甜言（你可在此处继续增加或修改） */
 const DIALOGUES = {
   pic1: {
     name: "萧小五",
@@ -168,12 +170,9 @@ const DIALOGUES = {
 };
 
 const PHOTO_DIALOGUES = {
-  // --- 萧小五（pic1Files） ---
   'xy1.jpg': '我的爱人，希望我能透过屏幕去触摸你',
   'xy2.jpg': '权和钱这一块还得论哥',
   'xy3.jpg': '下雨了快点跑，不知道是哪个人内心又在哭，不过我保证你肯定不会这样的',
-
-  // --- 兔子小姐（pic2Files） ---
   'lc1.jpg': '眼熟不，把本总裁当屏保这么久应该会有印象了吧',
   'lc2.jpg': '好chill的午后，和兔子小姐',
   'lc3.jpg': '熊熊来打工啦，cosplay警察。小样，迷倒你了吧'
@@ -197,16 +196,17 @@ const startBtn = document.getElementById('startBtn');
 const starsLayer = document.getElementById('starsLayer');
 
 /* 游戏状态 */
-let coins = [];         // 金币数组
-let particles = [];     // 粒子（星尘）
-let score = 0;          // 分数
+let coins = [];
+let particles = [];
+let score = 0;
 let dialogVisible = false;
-let progress = 0;       // 当前进度（0..neededPerDialogue-1）
-let running = false;    // 游戏是否运行
-let spawnTimer = null;  // 生成金币的定时器
-let animReq = null;     // requestAnimationFrame id
+let progress = 0;
+let running = false;
+let spawnTimer = null;
+let animReq = null;
+let logicTimer = null;
 
-/* 篮子（用图或矩形） */
+/* 篮子 */
 const basket = {
   x: W/2 - 80,
   y: H - 140,
@@ -219,13 +219,12 @@ const basket = {
 const basketImg = new Image();
 basketImg.src = CONFIG.imagesPath + CONFIG.basketFile;
 basketImg.onload = ()=> basket.img = basketImg;
-basketImg.onerror = ()=> basket.img = null; // 若加载失败，使用绘制矩形
+basketImg.onerror = ()=> basket.img = null;
 
 /* 预加载金币图（可选） */
 const randomCoin = CONFIG.coinFiles[Math.floor(Math.random() * CONFIG.coinFiles.length)];
 const coin = document.createElement("img");
 coin.src = CONFIG.imagesPath + randomCoin;
-
 
 /* ========== 工具函数 ========== */
 function rand(min,max){ return Math.random()*(max-min)+min }
@@ -233,24 +232,20 @@ function clamp(v,a,b){ return Math.max(a, Math.min(b, v)) }
 
 /* ========== 金币生成与粒子效果 ========== */
 function spawnCoin(filename) {
-  if (coins.length > 24) return; // 屏幕上同时存在金币数量上限
+  if (coins.length > 24) return;
   const size = rand(30, 56);
   const x = rand(20, W - 20 - size);
   const y = -size;
   const speed = rand(2.5, 5.0);
   const rot = rand(-0.4, 0.4);
 
-  // 选择图片文件名
   const file = filename || CONFIG.coinFiles[Math.floor(Math.random() * CONFIG.coinFiles.length)];
   const img = new Image();
   img.src = CONFIG.imagesPath + file;
-  img.onerror = () => { /* 无图时 fallback 由 draw() 处理 */ };
+  img.onerror = () => { /* fallback handled in draw */ };
 
-  // 将 img 附到该 coin 实例上
   coins.push({ x, y, size, speed, rot, img });
 }
-// 每隔 0.8 秒生成一个金币
-setInterval(spawnCoin, 800);
 
 function spawnParticles(x,y,color='rgba(255,220,240,0.95)'){
   for(let i=0;i<10;i++){
@@ -268,35 +263,30 @@ function spawnParticles(x,y,color='rgba(255,220,240,0.95)'){
 
 /* ========== 绘制函数 ========== */
 function draw(){
-  // 清空画布（背景由 body 显示）
   ctx.clearRect(0,0,W,H);
 
-  // 绘制金币（canvas 层）
- // 绘制金币（canvas 层）
-coins.forEach(c=>{
-  ctx.save();
-  ctx.translate(c.x + c.size/2, c.y + c.size/2);
-  ctx.rotate(c.rot);
-  // 阴影和发光
-  ctx.shadowBlur = 18;
-  ctx.shadowColor = 'rgba(255,200,240,0.9)';
-  if (c.img && c.img.complete && c.img.naturalWidth) {
-    ctx.drawImage(c.img, -c.size/2, -c.size/2, c.size, c.size);
-  } else {
-    // fallback — 绘制渐变圆形
-    const g = ctx.createRadialGradient(0,0,c.size*0.1,0,0,c.size*0.9);
-    g.addColorStop(0,'#fffdd8'); g.addColorStop(1,'#ffc94a');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(0,0,c.size/2,0,Math.PI*2); ctx.fill();
-  }
-  ctx.restore();
-});
+  // 绘制金币
+  coins.forEach(c=>{
+    ctx.save();
+    ctx.translate(c.x + c.size/2, c.y + c.size/2);
+    ctx.rotate(c.rot);
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = 'rgba(255,200,240,0.9)';
+    if (c.img && c.img.complete && c.img.naturalWidth) {
+      ctx.drawImage(c.img, -c.size/2, -c.size/2, c.size, c.size);
+    } else {
+      const g = ctx.createRadialGradient(0,0,c.size*0.1,0,0,c.size*0.9);
+      g.addColorStop(0,'#fffdd8'); g.addColorStop(1,'#ffc94a');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0,0,c.size/2,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  });
 
-  // 绘制篮子（图或矩形）
+  // 绘制篮子
   if(basket.img){
     ctx.drawImage(basket.img, basket.x, basket.y, basket.w, basket.h);
   }else{
-    // 光环
     const grad = ctx.createRadialGradient(basket.x + basket.w/2, basket.y + 20, 10, basket.x + basket.w/2, basket.y + 20, 80);
     grad.addColorStop(0,'rgba(255,200,230,0.12)'); grad.addColorStop(1,'rgba(255,200,230,0)');
     ctx.fillStyle = grad;
@@ -320,13 +310,12 @@ coins.forEach(c=>{
     p.x += p.vx; p.y += p.vy;
   }
 
-  // 请求下一帧
   animReq = requestAnimationFrame(draw);
 }
 
 /* ========== 收集逻辑 ========== */
 function onCoinCollected(cx, cy){
-  score++; 
+  score++;
   progress++;
   scoreElUpdate();
   spawnParticles(cx, cy);
@@ -339,7 +328,7 @@ function onCoinCollected(cx, cy){
   }
 }
 
-/* 飘字效果（短暂） */
+/* 飘字效果 */
 function showPickupFly(text, x, y){
   const el = document.createElement('div');
   el.style.position = 'fixed';
@@ -356,13 +345,14 @@ function showPickupFly(text, x, y){
   setTimeout(()=>el.remove(),900);
 }
 
-/* 更新 HUD（分数与进度） */
+/* 更新 HUD */
 function scoreElUpdate(){
   scoreEl.textContent = `💰 ${score}`;
   const pct = (progress / CONFIG.neededPerDialogue) * 100;
   progressBar.style.width = pct + '%';
 }
-/* ========== 控制交互（支持鼠标、触控与键盘） ========== */
+
+/* 交互：指针与键盘 */
 let isPointerDown = false;
 window.addEventListener('pointerdown', e=>{ isPointerDown = true; moveBasketTo(e.clientX); });
 window.addEventListener('pointermove', e=>{ if(isPointerDown) moveBasketTo(e.clientX); });
@@ -372,45 +362,36 @@ function moveBasketTo(clientX){
   basket.x = clamp(clientX - basket.w/2, 8, W - basket.w - 8);
 }
 
-/* 键盘左右支持 */
 window.addEventListener('keydown', e=>{
   const step = Math.max(24, Math.round(W/30));
   if(e.key === 'ArrowLeft' || e.key === 'a') basket.x = clamp(basket.x - step, 8, W - basket.w - 8);
   if(e.key === 'ArrowRight' || e.key === 'd') basket.x = clamp(basket.x + step, 8, W - basket.w - 8);
 });
 
-/* ========== 避免黑屏的主循环（分离绘制与逻辑） ========== */
-let logicTimer = null;
+/* 主循环（逻辑 + 绘制） */
 function startGameLoops(){
-  // 逻辑更新：金币下落、碰撞检查
+  if (logicTimer) clearInterval(logicTimer);
   logicTimer = setInterval(()=>{
-    // 更新金币位置并检测碰撞
     for(let i = coins.length-1;i>=0;i--){
       const c = coins[i];
       c.y += c.speed;
       c.rot += 0.01;
-      // 碰撞简单AABB
       if(c.y + c.size > basket.y &&
          c.x + c.size > basket.x &&
          c.x < basket.x + basket.w){
-        // 成功收取
         onCoinCollected(c.x + c.size/2, c.y + c.size/2);
         coins.splice(i,1);
       } else if(c.y > H + 80){
         coins.splice(i,1);
       }
     }
-    // 更新粒子位置（在 draw 中处理了实际渲染，但可在此清理）
   }, 30);
 
-  // 绘制循环（高优先）
   if(!animReq) draw();
 }
 
-/* ========== 开场特效（每次点击 start 执行） ========== */
-/* 1) 亮度渐变（用遮罩层） 2) DOM 星光漂浮动画 3) 持续 CONFIG.introDuration 毫秒 */
+/* 开场特效并启动游戏（由 startBtn 触发） */
 function playIntroEffectAndStart(){
-  // 创建短暂遮罩实现从暗到亮的淡入
   const overlay = document.createElement('div');
   overlay.style.position = 'fixed';
   overlay.style.inset = '0';
@@ -419,7 +400,6 @@ function playIntroEffectAndStart(){
   overlay.style.pointerEvents = 'none';
   document.body.appendChild(overlay);
 
-  // 生成若干星光元素到 starsLayer（随机位置、小幅上升）
   const starCount = Math.floor(rand(CONFIG.starMin, CONFIG.starMax+1));
   for(let i=0;i<starCount;i++){
     const s = document.createElement('div');
@@ -431,57 +411,42 @@ function playIntroEffectAndStart(){
     s.style.background = Math.random() < 0.6 ? 'rgba(255,230,250,0.95)' : 'rgba(255,245,190,0.95)';
     s.style.animationDuration = (1.8 + Math.random()*1.2) + 's';
     starsLayer.appendChild(s);
-    // 在动画结束后移除该 star（与 overlay 一起）
     setTimeout(()=>{ if(s.parentNode) s.parentNode.removeChild(s); }, CONFIG.introDuration + 300);
   }
 
-  // 淡出遮罩（使画面从暗到亮）
   overlay.animate([{opacity:1},{opacity:0}],{duration:CONFIG.introDuration,fill:'forwards',easing:'ease-out'});
   setTimeout(()=>{ if(overlay.parentNode) overlay.parentNode.removeChild(overlay); }, CONFIG.introDuration + 80);
 
-  // 开始游戏循环（延迟与特效长度一致）
   setTimeout(()=>{
-    // 启动实际生成和循环
-    if(spawnTimer) clearInterval(spawnTimer); // 防止重复
+    if(spawnTimer) clearInterval(spawnTimer);
     spawnTimer = setInterval(spawnCoin, CONFIG.spawnInterval);
     startGameLoops();
     running = true;
   }, CONFIG.introDuration);
 }
 
- /* ========== 对话触发器（绑定到进度满） ========== */   
-/* ========== 对话触发器 ========== */
+/* ========== 对话触发器 ========== */ //Dialog trigger//
 function triggerDialogue() {
   if (dialogVisible) return;
   dialogVisible = true;
 
-  // 角色：pic1 = 萧小五，pic2 = 兔子小姐
+  // 选择角色与图片
   const pick = Math.random() < 0.5 ? 'pic1' : 'pic2';
-  const conf = DIALOGUES[pick];   
-
-  /* -------- 处理图片轮播池 -------- */
-  const poolName = pick + 'Pool';      
+  const conf = DIALOGUES[pick];
+  const poolName = pick + 'Pool';
   const fileList = CONFIG[pick + 'Files'];
-
-  if (!window[poolName] || window[poolName].length === 0)
-    window[poolName] = [...fileList];
-
+  if (!window[poolName] || window[poolName].length === 0) window[poolName] = [...fileList];
   const index = Math.floor(Math.random() * window[poolName].length);
   const chosenFile = window[poolName].splice(index, 1)[0];
+  const imgSrc = CONFIG.imagesPath + chosenFile;
 
-  dialogPic.src = CONFIG.imagesPath + chosenFile;
-
-  /* -------- 选择台词（图片绑定优先） -------- */
-  const prev = dialogLine.dataset.prev || "";
-  const fileName = chosenFile;
+  // 选择台词
+  const prev = window._lastDialogPrev || "";
   let nextLine = "";
-
-  if (PHOTO_DIALOGUES[fileName]) {
-    nextLine = PHOTO_DIALOGUES[fileName]; // 图片专属台词
+  if (PHOTO_DIALOGUES[chosenFile]) {
+    nextLine = PHOTO_DIALOGUES[chosenFile];
   } else {
-    // 角色随机台词
     nextLine = conf.lines[Math.floor(Math.random() * conf.lines.length)];
-
     if (conf.lines.length > 1) {
       let tries = 0;
       while (nextLine === prev && tries++ < 6) {
@@ -489,66 +454,82 @@ function triggerDialogue() {
       }
     }
   }
+  window._lastDialogPrev = nextLine;
 
- dialogLine.textContent = "";
-typeWriter(nextLine);
-  dialogLine.dataset.prev = nextLine;
+  // 构建临时对话 DOM（挂在 document.body，避免被 startOverlay 隐藏）
+  const el = document.createElement('div');
+  el.className = 'dialog show';
+  // 不使用 id，避免重复 id 冲突
+  el.innerHTML = `
+    <img class="dialog-pic" alt="头像">
+    <div class="txt">
+      <div class="name">${conf.name}</div>
+      <div class="line"></div>
+    </div>
+  `;
+  // 插入到 body（确保在最上层）
+  document.body.appendChild(el);
 
-  /* -------- 样式（名字金色；台词按角色变色） -------- */
-  dialogName.textContent = conf.name;
-  dialogName.style.color = "#FFD700"; // 金色名字
+  // 设置图片（安全加载）
+  const imgEl = el.querySelector('.dialog-pic');
+  imgEl.src = imgSrc;
+  imgEl.onerror = () => { imgEl.remove(); }; // 若图片加载失败，移除 img 保证布局不崩
 
+  // 设置样式（名字与台词颜色）
+  const nameEl = el.querySelector('.name');
+  const lineEl = el.querySelector('.line');
+  nameEl.style.color = "#FFD700";
   if (pick === 'pic1') {
-    dialogLine.style.color = "#00FF9C"; // 翠绿（萧小五）
-    dialogBox.style.background = "rgba(128,0,0,0.35)";
+    lineEl.style.color = "#00FF9C";
+    el.style.background = "rgba(128,0,0,0.35)";
   } else {
-    dialogLine.style.color = "#e64a1c"; // 酒红（兔子小姐）
-    dialogBox.style.background = "rgba(0,255,128,0.35)";
+    lineEl.style.color = "#e64a1c";
+    el.style.background = "rgba(0,255,128,0.35)";
   }
-function typeWriter(text) {
-  let i = 0;
-  dialogLine.textContent = "";
-  const speed = 30;
 
-  function typing() {
-    if (i < text.length) {
-      dialogLine.textContent += text.charAt(i);
-      i++;
-      requestAnimationFrame(typing);
+  // 放在篮子上方位置
+  el.style.bottom = (H - basket.y + 20) + 'px';
+
+  // 打字机效果（requestAnimationFrame）
+  (function typeWriter(text, targetEl) {
+    let i = 0;
+    function typing() {
+      if (i < text.length) {
+        targetEl.textContent += text.charAt(i++);
+        requestAnimationFrame(typing);
+      }
     }
-  }
-  typing();
-}
-  /* -------- 显示对话框 -------- */
-  dialogBox.classList.add('show');
-  dialogBox.style.bottom = (H - basket.y + 20) + 'px';
+    typing();
+  })(nextLine, lineEl);
 
-  setTimeout(() => {
-    dialogBox.classList.remove('show');
+  // 自动移除与状态重置
+  const removeAfter = 3000;
+  const t = setTimeout(() => {
+    // 轻量动画：移除 show 类（依赖现有 .dialog.show -> visible），然后彻底移除节点
+    el.classList.remove('show');
+    // 小延迟以便 CSS transition 生效后移除 DOM
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 420);
     dialogVisible = false;
-  }, 3000);
+    clearTimeout(t);
+  }, removeAfter);
 }
 
-/* ========== 页面交互：start 按钮绑定（必须的用户交互，兼容 iOS） ========== */
+
+/* start 按钮绑定（只触发开场特效与启动） */
 startBtn.addEventListener('click', ()=>{
-  // 隐藏 start 覆盖（视觉上先隐藏）
   startOverlay.style.display = 'none';
-  // 播放开场特效并在其后启动游戏循环
   playIntroEffectAndStart();
-  spawnTimer = setInterval(spawnCoin, CONFIG.spawnInterval);
 });
 
-/* ========== 窗口调整时自适应 ========== */
+/* 窗口调整 */
 window.addEventListener('resize', ()=>{
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
-  // 修正篮子 x 避免出界
   basket.x = clamp(basket.x, 8, W - basket.w - 8);
 });
 
-/* ========== 捕获点击金币（支持鼠标点击收集） ========== */
+/* 点击画布收集金币（修正判定半径） */
 canvas.addEventListener('click', (e)=>{
-  // 点击直接检测附近金币
   const rect = canvas.getBoundingClientRect();
   const cx = e.clientX - rect.left;
   const cy = e.clientY - rect.top;
@@ -556,8 +537,7 @@ canvas.addEventListener('click', (e)=>{
     const c = coins[i];
     const dx = cx - (c.x + c.size/2);
     const dy = cy - (c.y + c.size/2);
-    if(Math.sqrt(dx*dx + dy*dy) < c.size){
-      // 直接收取
+    if(Math.sqrt(dx*dx + dy*dy) < c.size/2){
       coins.splice(i,1);
       onCoinCollected(cx, cy);
       break;
@@ -565,18 +545,15 @@ canvas.addEventListener('click', (e)=>{
   }
 });
 
-/* ========== 初始化绘制循环（画面不会黑屏） ========== */
-/* draw() 已经在顶部定义，会被 startGameLoops 启动。我们提前绘制一次静态画面避免打开时黑屏感 */
+/* 初始绘制，避免黑屏 */
 (function initialPaint(){
   ctx.clearRect(0,0,W,H);
-  // 画一个淡色渐变作为占位（避免纯黑）
   const g = ctx.createLinearGradient(0,0,0,H);
   g.addColorStop(0,'rgba(20,10,40,0.35)');
   g.addColorStop(1,'rgba(3,1,9,0.55)');
   ctx.fillStyle = g;
   ctx.fillRect(0,0,W,H);
 
-  // 初始绘制篮子占位
   if(basket.img){ ctx.drawImage(basket.img, basket.x, basket.y, basket.w, basket.h); }
   else{
     ctx.fillStyle = 'rgba(255,192,203,0.9)';
@@ -584,12 +561,12 @@ canvas.addEventListener('click', (e)=>{
   }
 })();
 
-/* ========== 防止内存泄漏：可在此处添加停止函数（如果需要） ========== */
-/* function stopGame() { clearInterval(spawnTimer); clearInterval(logicTimer); cancelAnimationFrame(animReq); } */
+/* 可选停止函数（便于调试） */
+// function stopGame() { clearInterval(spawnTimer); clearInterval(logicTimer); cancelAnimationFrame(animReq); }
 
 </script>
 <!-- 背景音乐 -->
-<audio id="bgm" src="page2.mp3" autoplay loop></audio>
+<audio id="bgm" src="audio4.mp3" autoplay loop></audio>
 
 <!-- 静音按钮 -->
 <div id="muteButton">🔊</div>
@@ -624,17 +601,15 @@ document.addEventListener("click", function () {
 const bgm = document.getElementById("bgm");
 const muteBtn = document.getElementById("muteButton");
 
-// 点击静音 / 取消静音
 muteBtn.addEventListener("click", () => {
   if (bgm.muted) {
     bgm.muted = false;
-    muteBtn.textContent = "🔊";   // 图标：声音开
+    muteBtn.textContent = "🔊";
   } else {
     bgm.muted = true;
-    muteBtn.textContent = "🔇";   // 图标：静音
+    muteBtn.textContent = "🔇";
   }
 });
 </script>
-
 </body>
 </html>
