@@ -1,195 +1,574 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>萧小五/兔子小姐の奇妙旅途 - 主页面</title>
-
-
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
+<title>星光拾梦 — 挥金之夜（page2）</title>
 <style>
-body {
-  margin: 0;
-  font-family: "Hiragino Maru Gothic Pro", "PingFang SC", sans-serif;
-  background: linear-gradient(180deg, #ffe7ef, #def6ff);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;   /* 垂直居中 */
-  align-items: center;       /* 水平居中 */
-  text-align: center;
+
+/* 页面和背景 */ /* page and bg set up*/
+
+:root{
+  --dialog-bg: rgba(255,255,255,0.78); /* 对话框不透明度 */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;width:100%;overflow:hidden;font-family:"PingFang SC","Helvetica Neue",Arial,sans-serif;background:#050014}
+body{
+  background-image: url('background.jpg');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
 }
 
-/* 标题 *//* Title*/
-.title {
-  font-size: 2.3rem;
-  color: #ff6ca8;
-  text-shadow: 0 2px 6px rgba(255,150,180,0.35);
-  animation: fadeIn 1s;
-  margin-bottom: 30px;
+/* 画布占满整个页面（透明）*//* transparent bg */
+#gameCanvas{position:fixed;inset:0;z-index:2;display:block}
+
+/* HUD（分数 + 进度条）置顶居中 */ /* HUD Score & progress bar */
+.hud{
+  position:fixed;top:18px;left:50%;transform:translateX(-50%);
+  z-index:8;display:flex;align-items:center;gap:14px;
+  background:rgba(0,0,0,0.18);padding:8px 14px;border-radius:999px;backdrop-filter:blur(6px)
+}
+#score{color:#fff;font-weight:700;font-size:18px}
+.progress-wrap{width:180px;height:12px;background:rgba(255,255,255,0.08);border-radius:999px;padding:2px}
+.progress-bar{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,#ffd86a,#ff9ad6);box-shadow:0 6px 18px rgba(255,120,190,0.08);transition:width .28s ease}
+
+/* 返回主页按钮 *//* Home bottom*/
+#backBtn{position:fixed;left:18px;top:18px;z-index:9;background:rgba(255,255,255,0.08);color:#fff;border:none;border-radius:12px;padding:8px 12px;cursor:pointer;backdrop-filter:blur(4px)}
+
+/* 开始覆盖层（点击开始后触发开场特效，再隐藏） *//* intro layers */
+.start-overlay{
+  position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,rgba(5,3,12,0.6),rgba(3,1,9,0.7));
+}
+.start-card{
+  background:linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));
+  padding:28px 36px;border-radius:16px;color:#fff;text-align:center;backdrop-filter:blur(6px);
+  box-shadow:0 12px 36px rgba(0,0,0,0.6)
+}
+.start-card h2{font-size:20px;margin-bottom:6px}
+.start-btn{margin-top:12px;padding:10px 26px;border-radius:12px;border:none;background:linear-gradient(90deg,#ffb3e6,#ff77c5);color:white;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(255,110,180,0.18)}
+
+/* 对话框 *//* dialogbox */
+.dialog{
+  position:fixed;left:50%;bottom:48px;transform:translateX(-50%);z-index:18;
+  display:flex;align-items:center;gap:12px;padding:12px 18px;border-radius:14px;
+  background: var(--dialog-bg); 
+  backdrop-filter: blur(10px);
+  box-shadow:0 12px 40px rgba(0,0,0,0.45);
+  color:#1b0a1a; 
+  max-width:86vw;
+  visibility:hidden;opacity:0;transition:opacity .45s ease, transform .35s ease;
+}
+.dialog.show{visibility:visible;opacity:1;transform:translateX(-50%) translateY(-6px)}
+.dialog img{width:88px;height:88px;border-radius:12px;object-fit:cover;box-shadow: 0 0 25px rgba(255, 215, 0, 0.5); /* 柔光外发光 */
+  backdrop-filter: blur(6px); /* 背景柔化 */
+  border: 2px solid rgba(255, 215, 0, 0.5);}
+.dialog .txt{display:flex;flex-direction:column}
+.dialog .txt .name{font-weight:800;color:#ffdfe9;margin-bottom:6px}
+.dialog .txt .line{font-size:15px;line-height:1.3;color:#fff}
+
+/* 星光特效容器（DOM 内生成）*/ /* Star effect）*/
+.stars-layer{position:fixed;inset:0;pointer-events:none;z-index:15}
+
+/* 单个星光（通过 JS 动态创建） *//* single star*/
+.star{
+  position:absolute;
+  border-radius:50%;
+  pointer-events:none;
+  opacity:0;transform:
+  scale(0.6);
+  filter:blur(.4px);
+  mix-blend-mode:screen;
+  animation:starRise 2.2s ease forwards;
+}
+@keyframes starRise{
+  0%{opacity:0;transform:translateY(0) scale(0.6)}
+  30%{opacity:0.85;transform:translateY(-24px) scale(1)}
+  100%{opacity:0;transform:translateY(-80px) scale(0.8)}
 }
 
-/* 按钮组 *//* bottom set*/
-.button-group {
-  display: flex;
-  justify-content: center;
-  gap: 25px;
-  margin-bottom: 25px;
-}
-
-.button-group button {
-  background: rgba(255,255,255,0.75);
-  border: none;
-  padding: 14px 28px;
-  border-radius: 20px;
-  font-size: 1.15rem;
-  cursor: pointer;
-  box-shadow: 0 6px 12px rgba(255, 170, 200, 0.3);
-  transition: .2s;
-}
-
-.button-group button:hover {
-  background: #ffe3f0;
-  transform: scale(1.07);
-}
-
-canvas {
-  border-radius: 12px;
-  width: 100%;
-}
-
-@keyframes fadeIn {
-  from { opacity:0; transform: translateY(10px); }
-  to { opacity:1; transform: translateY(0); }
+/* 小屏优化 *//* small screen optimization */
+@media (max-width:420px){
+  .hud{gap:10px;padding:6px 10px}
+  .progress-wrap{width:120px}
+  .dialog img{width:56px;height:56px}
 }
 </style>
 </head>
-
 <body>
+  <!-- 返回按钮 --> <!-- back bottom -->
+  <button id="backBtn" onclick="location.href='index.html'">返回主页</button>
 
-<h1 class="title">🐱萧小五/兔子小姐🐰 の奇妙旅途 🎵</h1>
+  <!-- 顶部 HUD：分数与进度 --><!-- Top HUD：Score & progress bar -->
+  <div class="hud" role="status" aria-live="polite">
+    <div id="score">💰 0</div>
+    <div class="progress-wrap" title="进度（收集 5 个触发一句话）">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
 
-<div class="button-group">
-  <button onclick="openPage('piano')">🎹 初诞礼赞</button>
-  <button class="next-btn" onclick="location.href='page2.html'">
-     💰 挥金之夜  
-    </button>
-  <button onclick="openPage('dream')">💭 思念絮语</button>
-</div>
+  <!-- 画布：绘制金币、篮子、光效 -->  <!-- Elements drown in Canvas-->
+  <canvas id="gameCanvas"></canvas>
 
-<div id="content"></div>
+  <!-- 星光 DOM 层：开场时创建若干星光元素并播放动画 --> <!-- Start Elements drown in Canvas-->
+  <div class="stars-layer" id="starsLayer" aria-hidden="true"></div>
 
+  <!-- 开始覆盖（必须的用户交互，用于触发音频与开场特效） -->  <!-- Start (interact is needed to activate the audio） -->
+  <div class="start-overlay" id="startOverlay" role="dialog" aria-modal="true">
+    <div class="start-card">
+      <h2>星光拾梦 · 挥金之夜</h2>
+      <div style="color:#ffeef9;font-size:14px;margin-top:6px">用鼠标 / 手指移动头冠，接住下落的星光</div>
+      <button class="start-btn" id="startBtn">开始</button>
+
+  <!-- 对话框：只保留一份，避免重复 id --> 
+  <div class="dialog" id="dialogBox" aria-hidden="true">
+    <img id="dialogPic" src="lc1.jpg" alt="头像">
+    <div class="txt">
+      <div class="name" id="dialogName">萧小五</div>
+      <div class="line" id="dialogLine">——</div>
+    </div>
+  </div>
+
+    </div>
+  </div>
 <script>
-function openPage(page) {
-  const content = document.getElementById("content");
-  content.innerHTML = "";
 
-  if (page === "piano") {
-    content.innerHTML = `
-      <h2>🎶 初诞礼赞</h2>
-      <p>柔和的音符似春风般拂过你的心。</p>
-      <audio controls autoplay style="margin-top:10px">
-        <source src="piano.mp3" type="audio/mpeg">
-      </audio>`;
+/* ================== 配置区（可按需调整） ================== *//* === Set up === */
+const CONFIG = {
+  imagesPath: '',                  // 若图片和 HTML 在同一目录，留空；若在 ./images/ 则改为 './images/'
+  coinFiles: ['coin.png', 'coin2.png'],
+  basketFile: 'basket.png',
+  pic1Files: ['xy1.jpg', 'xy2.jpg', 'xy3.jpg'],
+  pic2Files: ['lc1.jpg', 'lc2.jpg', 'lc3.jpg'],
+  neededPerDialogue: 5,
+  spawnInterval: 900,
+  starMin: 15,
+  starMax: 20,
+  introDuration: 2000
+};
+
+/* ========== 台词（根据选择的头像显示不同文本） ========== */
+const DIALOGUES = {
+  pic1: {
+    name: "萧小五",
+    lines: [
+      "你今天也很好看。",
+      "靠近一点，让我看看你。"
+    ]
+  },
+  pic2: {
+    name: "兔子小姐",
+    lines: [
+      "你来啦，我就知道你会来。",
+      "想我了吗？"
+    ]
   }
+};
 
-  if (page === "dream") {
-    content.innerHTML = `
-      <h2>🌙 思念絮语</h2>
-      <p>星光点点，每一颗都是你的思念。</p>
-      <img src="dream-bg.jpg"
-           style="width:90%; border-radius:12px; margin-top:15px; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
-    `;
-  }
+const PHOTO_DIALOGUES = {
+  'xy1.jpg': '我的爱人，希望我能透过屏幕去触摸你',
+  'xy2.jpg': '权和钱这一块还得论哥',
+  'xy3.jpg': '下雨了快点跑，不知道是哪个人内心又在哭，不过我保证你肯定不会这样的',
+  'lc1.jpg': '眼熟不，把本总裁当屏保这么久应该会有印象了吧',
+  'lc2.jpg': '好chill的午后，和兔子小姐',
+  'lc3.jpg': '熊熊来打工啦，cosplay警察。小样，迷倒你了吧'
+};
 
-  if (page === "game") startGame(content);
+/* ================== 画布与资源初始化 ================== */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let W = canvas.width = window.innerWidth;
+let H = canvas.height = window.innerHeight;
+
+/* HUD 元素 */
+const scoreEl = document.getElementById('score');
+const progressBar = document.getElementById('progressBar');
+const dialogBox = document.getElementById('dialogBox');
+const dialogPic = document.getElementById('dialogPic');
+const dialogName = document.getElementById('dialogName');
+const dialogLine = document.getElementById('dialogLine');
+const startOverlay = document.getElementById('startOverlay');
+const startBtn = document.getElementById('startBtn');
+const starsLayer = document.getElementById('starsLayer');
+
+/* 游戏状态 */
+let coins = [];
+let particles = [];
+let score = 0;
+let dialogVisible = false;
+let progress = 0;
+let running = false;
+let spawnTimer = null;
+let animReq = null;
+let logicTimer = null;
+
+/* 篮子 */
+const basket = {
+  x: W/2 - 80,
+  y: H - 140,
+  w: 160,
+  h: 90,
+  img: null
+};
+
+/* 尝试加载篮子图（若不存在则使用矩形） */
+const basketImg = new Image();
+basketImg.src = CONFIG.imagesPath + CONFIG.basketFile;
+basketImg.onload = ()=> basket.img = basketImg;
+basketImg.onerror = ()=> basket.img = null;
+
+/* 预加载金币图（可选） */
+const randomCoin = CONFIG.coinFiles[Math.floor(Math.random() * CONFIG.coinFiles.length)];
+const coin = document.createElement("img");
+coin.src = CONFIG.imagesPath + randomCoin;
+
+/* ========== 工具函数 ========== */
+function rand(min,max){ return Math.random()*(max-min)+min }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)) }
+
+/* ========== 金币生成与粒子效果 ========== */
+function spawnCoin(filename) {
+  if (coins.length > 24) return;
+  const size = rand(30, 56);
+  const x = rand(20, W - 20 - size);
+  const y = -size;
+  const speed = rand(2.5, 5.0);
+  const rot = rand(-0.4, 0.4);
+
+  const file = filename || CONFIG.coinFiles[Math.floor(Math.random() * CONFIG.coinFiles.length)];
+  const img = new Image();
+  img.src = CONFIG.imagesPath + file;
+  img.onerror = () => { /* fallback handled in draw */ };
+
+  coins.push({ x, y, size, speed, rot, img });
 }
 
-/* ======== 游戏放入内容卡片 ======== *//* ======== game insert======== */
-function startGame(container) {
-  container.innerHTML = `
-    <h2>💰 挥金之夜</h2>
-    <canvas id="gameCanvas" width="350" height="450"
-     style="border:2px solid #555; border-radius:12px; background:url('background.jpg'); background-size:cover;"></canvas>
-    <p>用 ← → 控制篮子接金币！</p>
+function spawnParticles(x,y,color='rgba(255,220,240,0.95)'){
+  for(let i=0;i<10;i++){
+    particles.push({
+      x, y,
+      vx: rand(-2.5,2.5),
+      vy: rand(-4,-1),
+      size: rand(3,8),
+      life: rand(500,1100),
+      born: Date.now(),
+      color
+    });
+  }
+}
+
+/* ========== 绘制函数 ========== */
+function draw(){
+  ctx.clearRect(0,0,W,H);
+
+  // 绘制金币
+  coins.forEach(c=>{
+    ctx.save();
+    ctx.translate(c.x + c.size/2, c.y + c.size/2);
+    ctx.rotate(c.rot);
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = 'rgba(255,200,240,0.9)';
+    if (c.img && c.img.complete && c.img.naturalWidth) {
+      ctx.drawImage(c.img, -c.size/2, -c.size/2, c.size, c.size);
+    } else {
+      const g = ctx.createRadialGradient(0,0,c.size*0.1,0,0,c.size*0.9);
+      g.addColorStop(0,'#fffdd8'); g.addColorStop(1,'#ffc94a');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0,0,c.size/2,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  });
+
+  // 绘制篮子
+  if(basket.img){
+    ctx.drawImage(basket.img, basket.x, basket.y, basket.w, basket.h);
+  }else{
+    const grad = ctx.createRadialGradient(basket.x + basket.w/2, basket.y + 20, 10, basket.x + basket.w/2, basket.y + 20, 80);
+    grad.addColorStop(0,'rgba(255,200,230,0.12)'); grad.addColorStop(1,'rgba(255,200,230,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.ellipse(basket.x + basket.w/2, basket.y + basket.h - 5, basket.w*0.7, 22, 0, 0, Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,190,210,0.95)';
+    ctx.fillRect(basket.x, basket.y, basket.w, basket.h*0.6);
+  }
+
+  // 粒子绘制
+  for(let i = particles.length-1; i>=0; i--){
+    const p = particles[i];
+    const age = Date.now() - p.born;
+    if(age > p.life){ particles.splice(i,1); continue; }
+    const a = 1 - age / p.life;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+    p.vy += 0.06;
+    p.x += p.vx; p.y += p.vy;
+  }
+
+  animReq = requestAnimationFrame(draw);
+}
+
+/* ========== 收集逻辑 ========== */
+function onCoinCollected(cx, cy){
+  score++;
+  progress++;
+  scoreElUpdate();
+  spawnParticles(cx, cy);
+  showPickupFly('+1', cx, cy);
+
+  if (progress >= CONFIG.neededPerDialogue) {
+    progress = 0;
+    progressBar.style.width = '0%';
+    setTimeout(()=>{ triggerDialogue(); }, 220);
+  }
+}
+
+/* 飘字效果 */
+function showPickupFly(text, x, y){
+  const el = document.createElement('div');
+  el.style.position = 'fixed';
+  el.style.left = (x - 12) + 'px';
+  el.style.top = (y - 20) + 'px';
+  el.style.zIndex = 12;
+  el.style.pointerEvents = 'none';
+  el.style.color = '#fff';
+  el.style.fontWeight = '700';
+  el.style.textShadow = '0 6px 18px rgba(255,120,200,0.28)';
+  el.textContent = text;
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>{ el.style.transition = 'transform .9s ease-out, opacity .9s'; el.style.transform = 'translateY(-48px)'; el.style.opacity = '0'; });
+  setTimeout(()=>el.remove(),900);
+}
+
+/* 更新 HUD */
+function scoreElUpdate(){
+  scoreEl.textContent = `💰 ${score}`;
+  const pct = (progress / CONFIG.neededPerDialogue) * 100;
+  progressBar.style.width = pct + '%';
+}
+
+/* 交互：指针与键盘 */
+let isPointerDown = false;
+window.addEventListener('pointerdown', e=>{ isPointerDown = true; moveBasketTo(e.clientX); });
+window.addEventListener('pointermove', e=>{ if(isPointerDown) moveBasketTo(e.clientX); });
+window.addEventListener('pointerup', e=>{ isPointerDown = false; });
+
+function moveBasketTo(clientX){
+  basket.x = clamp(clientX - basket.w/2, 8, W - basket.w - 8);
+}
+
+window.addEventListener('keydown', e=>{
+  const step = Math.max(24, Math.round(W/30));
+  if(e.key === 'ArrowLeft' || e.key === 'a') basket.x = clamp(basket.x - step, 8, W - basket.w - 8);
+  if(e.key === 'ArrowRight' || e.key === 'd') basket.x = clamp(basket.x + step, 8, W - basket.w - 8);
+});
+
+/* 主循环（逻辑 + 绘制） */
+function startGameLoops(){
+  if (logicTimer) clearInterval(logicTimer);
+  logicTimer = setInterval(()=>{
+    for(let i = coins.length-1;i>=0;i--){
+      const c = coins[i];
+      c.y += c.speed;
+      c.rot += 0.01;
+      if(c.y + c.size > basket.y &&
+         c.x + c.size > basket.x &&
+         c.x < basket.x + basket.w){
+        onCoinCollected(c.x + c.size/2, c.y + c.size/2);
+        coins.splice(i,1);
+      } else if(c.y > H + 80){
+        coins.splice(i,1);
+      }
+    }
+  }, 30);
+
+  if(!animReq) draw();
+}
+
+/* 开场特效并启动游戏（由 startBtn 触发） */
+function playIntroEffectAndStart(){
+  const overlay = document.createElement('div');
+  overlay.style.position = 'fixed';
+  overlay.style.inset = '0';
+  overlay.style.background = 'rgba(5,2,15,0.85)';
+  overlay.style.zIndex = 30;
+  overlay.style.pointerEvents = 'none';
+  document.body.appendChild(overlay);
+
+  const starCount = Math.floor(rand(CONFIG.starMin, CONFIG.starMax+1));
+  for(let i=0;i<starCount;i++){
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = rand(4,10);
+    s.style.width = s.style.height = size + 'px';
+    s.style.left = (rand(6,94)) + '%';
+    s.style.top = (rand(40,84)) + '%';
+    s.style.background = Math.random() < 0.6 ? 'rgba(255,230,250,0.95)' : 'rgba(255,245,190,0.95)';
+    s.style.animationDuration = (1.8 + Math.random()*1.2) + 's';
+    starsLayer.appendChild(s);
+    setTimeout(()=>{ if(s.parentNode) s.parentNode.removeChild(s); }, CONFIG.introDuration + 300);
+  }
+
+  overlay.animate([{opacity:1},{opacity:0}],{duration:CONFIG.introDuration,fill:'forwards',easing:'ease-out'});
+  setTimeout(()=>{ if(overlay.parentNode) overlay.parentNode.removeChild(overlay); }, CONFIG.introDuration + 80);
+
+  setTimeout(()=>{
+    if(spawnTimer) clearInterval(spawnTimer);
+    spawnTimer = setInterval(spawnCoin, CONFIG.spawnInterval);
+    startGameLoops();
+    running = true;
+  }, CONFIG.introDuration);
+}
+
+/* ========== 对话触发器 ========== */ //Dialog trigger//
+function triggerDialogue() {
+  if (dialogVisible) return;
+  dialogVisible = true;
+
+  // 选择角色与图片
+  const pick = Math.random() < 0.5 ? 'pic1' : 'pic2';
+  const conf = DIALOGUES[pick];
+  const poolName = pick + 'Pool';
+  const fileList = CONFIG[pick + 'Files'];
+  if (!window[poolName] || window[poolName].length === 0) window[poolName] = [...fileList];
+  const index = Math.floor(Math.random() * window[poolName].length);
+  const chosenFile = window[poolName].splice(index, 1)[0];
+  const imgSrc = CONFIG.imagesPath + chosenFile;
+
+  // 选择台词
+  const prev = window._lastDialogPrev || "";
+  let nextLine = "";
+  if (PHOTO_DIALOGUES[chosenFile]) {
+    nextLine = PHOTO_DIALOGUES[chosenFile];
+  } else {
+    nextLine = conf.lines[Math.floor(Math.random() * conf.lines.length)];
+    if (conf.lines.length > 1) {
+      let tries = 0;
+      while (nextLine === prev && tries++ < 6) {
+        nextLine = conf.lines[Math.floor(Math.random() * conf.lines.length)];
+      }
+    }
+  }
+  window._lastDialogPrev = nextLine;
+
+  // 构建临时对话 DOM（挂在 document.body，避免被 startOverlay 隐藏）
+  const el = document.createElement('div');
+  el.className = 'dialog show';
+  // 不使用 id，避免重复 id 冲突
+  el.innerHTML = `
+    <img class="dialog-pic" alt="头像">
+    <div class="txt">
+      <div class="name">${conf.name}</div>
+      <div class="line"></div>
+    </div>
   `;
+  // 插入到 body（确保在最上层）
+  document.body.appendChild(el);
 
-  const canvas = document.getElementById("gameCanvas");
-  const ctx = canvas.getContext("2d");
+  // 设置图片（安全加载）
+  const imgEl = el.querySelector('.dialog-pic');
+  imgEl.src = imgSrc;
+  imgEl.onerror = () => { imgEl.remove(); }; // 若图片加载失败，移除 img 保证布局不崩
 
-  const basket = {
-    x: 140,
-    y: 390,
-    width: 80,
-    height: 40,
-    img: new Image(),
-  };
-  basket.img.src = "basket.png";
-
-  const coin = {
-    x: Math.random() * 310,
-    y: 0,
-    size: 30,
-    img: new Image(),
-  };
-  coin.img.src = "coin.png";
-
-  let score = 0;
-  let rightPressed = false;
-  let leftPressed = false;
-
-  document.addEventListener("keydown", e => {
-    if (e.key === "ArrowRight") rightPressed = true;
-    if (e.key === "ArrowLeft") leftPressed = true;
-  });
-
-  document.addEventListener("keyup", e => {
-    if (e.key === "ArrowRight") rightPressed = false;
-    if (e.key === "ArrowLeft") leftPressed = false;
-  });
-
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(basket.img, basket.x, basket.y, basket.width, basket.height);
-    ctx.drawImage(coin.img, coin.x, coin.y, coin.size, coin.size);
-
-    ctx.fillStyle = "white";
-    ctx.font = "18px Arial";
-    ctx.fillText("分数: " + score, 10, 25);
+  // 设置样式（名字与台词颜色）
+  const nameEl = el.querySelector('.name');
+  const lineEl = el.querySelector('.line');
+  nameEl.style.color = "#FFD700";
+  if (pick === 'pic1') {
+    lineEl.style.color = "#00FF9C";
+    el.style.background = "rgba(128,0,0,0.35)";
+  } else {
+    lineEl.style.color = "#e64a1c";
+    el.style.background = "rgba(0,255,128,0.35)";
   }
 
-  function update() {
-    coin.y += 3;
+  // 放在篮子上方位置
+  el.style.bottom = (H - basket.y + 20) + 'px';
 
-    if (coin.y + coin.size > basket.y &&
-        coin.x + coin.size > basket.x &&
-        coin.x < basket.x + basket.width) {
-      score++;
-      coin.y = 0;
-      coin.x = Math.random() * 310;
+  // 打字机效果（requestAnimationFrame）
+  (function typeWriter(text, targetEl) {
+    let i = 0;
+    function typing() {
+      if (i < text.length) {
+        targetEl.textContent += text.charAt(i++);
+        requestAnimationFrame(typing);
+      }
     }
+    typing();
+  })(nextLine, lineEl);
 
-    if (coin.y > canvas.height) {
-      coin.y = 0;
-      coin.x = Math.random() * 310;
-    }
-
-    if (rightPressed && basket.x < canvas.width - basket.width) basket.x += 5;
-    if (leftPressed && basket.x > 0) basket.x -= 5;
-
-    draw();
-    requestAnimationFrame(update);
-  }
-
-  update();
+  // 自动移除与状态重置
+  const removeAfter = 3000;
+  const t = setTimeout(() => {
+    // 轻量动画：移除 show 类（依赖现有 .dialog.show -> visible），然后彻底移除节点
+    el.classList.remove('show');
+    // 小延迟以便 CSS transition 生效后移除 DOM
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 420);
+    dialogVisible = false;
+    clearTimeout(t);
+  }, removeAfter);
 }
 
-</script>
-</body>
-</script>
-<!-- 背景音乐 --><!-- bg music -->
-<audio id="bgm" src="index2.mp3" autoplay loop></audio>
 
-<!-- 静音按钮 --><!-- mute bottom -->
+/* start 按钮绑定（只触发开场特效与启动） */
+startBtn.addEventListener('click', ()=>{
+  startOverlay.style.display = 'none';
+  playIntroEffectAndStart();
+});
+
+/* 窗口调整 */
+window.addEventListener('resize', ()=>{
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  basket.x = clamp(basket.x, 8, W - basket.w - 8);
+});
+
+/* 点击画布收集金币（修正判定半径） */
+canvas.addEventListener('click', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  for(let i = coins.length-1; i>=0; i--){
+    const c = coins[i];
+    const dx = cx - (c.x + c.size/2);
+    const dy = cy - (c.y + c.size/2);
+    if(Math.sqrt(dx*dx + dy*dy) < c.size/2){
+      coins.splice(i,1);
+      onCoinCollected(cx, cy);
+      break;
+    }
+  }
+});
+
+/* 初始绘制，避免黑屏 */
+(function initialPaint(){
+  ctx.clearRect(0,0,W,H);
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'rgba(20,10,40,0.35)');
+  g.addColorStop(1,'rgba(3,1,9,0.55)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+
+  if(basket.img){ ctx.drawImage(basket.img, basket.x, basket.y, basket.w, basket.h); }
+  else{
+    ctx.fillStyle = 'rgba(255,192,203,0.9)';
+    ctx.fillRect(basket.x, basket.y, basket.w, basket.h*0.6);
+  }
+})();
+
+/* 可选停止函数（便于调试） */
+// function stopGame() { clearInterval(spawnTimer); clearInterval(logicTimer); cancelAnimationFrame(animReq); }
+
+</script>
+<!-- 背景音乐 -->
+<audio id="bgm" src="audio4.mp3" autoplay loop></audio>
+
+<!-- 静音按钮 -->
 <div id="muteButton">🔊</div>
 
 <style>
@@ -213,7 +592,7 @@ function startGame(container) {
 </style>
 
 <script>
-// 自动播放（需要任意一次点击即可激活）// Auto play(need one tap）
+// 自动播放（需要任意一次点击即可激活）
 document.addEventListener("click", function () {
   const bgm = document.getElementById("bgm");
   if (bgm.paused) bgm.play();
@@ -222,15 +601,15 @@ document.addEventListener("click", function () {
 const bgm = document.getElementById("bgm");
 const muteBtn = document.getElementById("muteButton");
 
-// 点击静音 / 取消静音// click to. mute / unmute
 muteBtn.addEventListener("click", () => {
   if (bgm.muted) {
     bgm.muted = false;
-    muteBtn.textContent = "🔊";   // 图标：声音开 // music on
+    muteBtn.textContent = "🔊";
   } else {
     bgm.muted = true;
-    muteBtn.textContent = "🔇";   // 图标：静音 // mute
+    muteBtn.textContent = "🔇";
   }
 });
 </script>
+</body>
 </html>
