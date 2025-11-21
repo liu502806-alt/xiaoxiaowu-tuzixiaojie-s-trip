@@ -61,6 +61,27 @@ canvas {
   from { opacity:0; transform: translateY(10px); }
   to { opacity:1; transform: translateY(0); }
 }
+
+/* 新增：播放模式按钮样式 */
+.modeBtn {
+  width:45px;
+  height:45px;
+  border-radius:50%;
+  border:none;
+  background:#ffffffcc;
+  box-shadow:0 3px 8px rgba(0,0,0,0.15);
+  font-size:20px;
+  cursor:pointer;
+  transition:0.25s;
+}
+.modeBtn:hover {
+  transform:scale(1.08);
+  background:#ffe6f2;
+}
+.modeBtn.active {
+  background:#ff8fb7;
+  color:white;
+}
 </style>
 </head>
 
@@ -191,27 +212,93 @@ function openPage(page) {
     `;
 
     item.onclick = () => {
-
-      // ——⭐ 点一首钢琴曲 → 自动暂停背景音乐 ⭐——
-  const bgm = document.getElementById("bgm");
-  if (bgm) bgm.pause();
-
-      player.src = m.file;
-      player.play();
-
-      // 清空其他进度条
-      document.querySelectorAll("[id^=fill]").forEach(f => f.style.width = "0%");
-
-      // 自动更新进度条
-      player.ontimeupdate = () => {
-        let pct = (player.currentTime / player.duration) * 100;
-        document.getElementById("fill" + index).style.width = pct + "%";
-      };
+      // 通过统一的 playIndex 处理播放与进度条更新
+      playIndex(index);
     };
 
     list.appendChild(item);
   });
-}
+  // ====== 插入下面的播放模式与控制逻辑 ======
+  let playMode = 'repeat-all'; // 'repeat-all' | 'repeat-one' | 'shuffle'
+  let currentIndex = -1;
+
+  const playAllBtnEl = document.getElementById('playAllBtn');
+  const modeBtnEls = Array.from(document.querySelectorAll('.modeBtn'));
+
+  // 简单样式高亮（如果需要，可把样式放入 <style>）
+  modeBtnEls.forEach(b => b.style.opacity = 0.6);
+  function updateModeUI(){
+    modeBtnEls.forEach(b => {
+      const active = b.dataset.mode === playMode;
+      b.style.opacity = active ? 1 : 0.6;
+      b.style.transform = active ? 'scale(1.08)' : 'scale(1)';
+      b.style.boxShadow = active ? '0 6px 14px rgba(255,140,180,0.25)' : 'none';
+      // 切换 class，配合上面的 CSS 控制背景/文字颜色
+      b.classList.toggle('active', active);
+    });
+  }
+  updateModeUI();
+
+  modeBtnEls.forEach(b => {
+    b.addEventListener('click', () => {
+      playMode = b.dataset.mode;
+      updateModeUI();
+    });
+  });
+
+  function playIndex(i){
+    if(i < 0 || i >= musicData.length) return;
+    currentIndex = i;
+    const m = musicData[i];
+    // 停背景音乐
+    const bgm = document.getElementById("bgm");
+    if (bgm && !bgm.paused) bgm.pause();
+    player.src = m.file;
+    player.play().catch(()=>{ /* play 被阻止时忽略 */ });
+    // 重置所有进度条（视觉同步）
+    document.querySelectorAll("[id^=fill]").forEach((f, idx) => {
+      f.style.width = idx === i ? (player.currentTime && player.duration ? (player.currentTime/player.duration*100)+'%' : '0%') : "0%";
+    });
+    // 统一的 timeupdate：只更新当前播放曲目的进度条
+    player.ontimeupdate = () => {
+      if (!player.duration || currentIndex < 0) return;
+      const pct = (player.currentTime / player.duration) * 100;
+      const el = document.getElementById('fill' + currentIndex);
+      if (el) el.style.width = pct + '%';
+    };
+  }
+
+  function playNext(){
+    if(musicData.length === 0) return;
+    if(playMode === 'repeat-one'){
+      playIndex(currentIndex);
+    } else if(playMode === 'shuffle'){
+      let next = Math.floor(Math.random() * musicData.length);
+      if(musicData.length > 1){
+        while(next === currentIndex) next = Math.floor(Math.random() * musicData.length);
+      }
+      playIndex(next);
+    } else { // repeat-all / 顺序播放（到末尾回到 0）
+      let next = (currentIndex + 1) % musicData.length;
+      playIndex(next);
+    }
+  }
+
+  // 当一首结束时自动切换
+  player.onended = () => playNext();
+
+  // 播放/继续按钮：若没在播放则从头开始，否则切下一首（可按需修改）
+  playAllBtnEl.addEventListener('click', () => {
+    if(currentIndex === -1) playIndex(0);
+    else playNext();
+  });
+
+  // 修改每个 item 的点击行为为调用 playIndex（确保使用上面逻辑）
+  document.querySelectorAll('.music-item').forEach((node, idx) => {
+    node.addEventListener('click', () => playIndex(idx));
+  });
+  // ====== 插入结束 ======
+  }
 
   if (page === "dream") {
     content.innerHTML = `
