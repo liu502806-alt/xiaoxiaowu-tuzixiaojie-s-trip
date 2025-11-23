@@ -71,6 +71,22 @@ body{
 .dialog .txt .name{font-weight:800;color:#ffdfe9;margin-bottom:6px}
 .dialog .txt .line{font-size:15px;line-height:1.3;color:#fff}
 
+/* 爆炸特效 */
+.explosion{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:140px;z-index:99998;pointer-events:none;display:flex;align-items:center;justify-content:center;
+}
+.explosion .blast{
+  width:18px;height:18px;border-radius:50%;background:radial-gradient(circle, rgba(255,240,200,0.95) 0%, rgba(255,160,60,0.85) 40%, rgba(255,80,30,0.6) 100%);
+  box-shadow:0 0 40px rgba(255,150,40,0.6);
+  animation:blastPop .45s ease-out forwards;
+}
+.explosion .shard{position:absolute;width:6px;height:6px;border-radius:50%;background:rgba(255,220,140,0.95);filter:blur(.6px);opacity:0.98;}
+@keyframes blastPop{
+  0%{transform:scale(0.2);opacity:1}
+  60%{transform:scale(1.6);opacity:0.9}
+  100%{transform:scale(2.8);opacity:0}
+}
+
 /* 星光特效容器（DOM 内生成）*/ /* Star effect）*/
 .stars-layer{position:fixed;inset:0;pointer-events:none;z-index:15}
 
@@ -102,10 +118,13 @@ body{
 <body>
   <!-- 返回按钮 --> <!-- back bottom -->
   <button id="backBtn" onclick="location.href='index.html'">返回主页</button>
+  <button id="resetStartBtn" style="position:fixed;left:18px;top:60px;z-index:9;background:rgba(255,255,255,0.06);color:#fff;border:none;border-radius:12px;padding:6px 10px;cursor:pointer;backdrop-filter:blur(4px);font-size:12px;">重置开始页</button>
 
   <!-- 顶部 HUD：分数与进度 --><!-- Top HUD：Score & progress bar -->
   <div class="hud" role="status" aria-live="polite">
-    <div id="score">💰 0</div>
+  <div id="score">💰 0</div>
+<!-- 连击数显示在左上角，音量按钮下方 -->
+<div id="combo" style="position:fixed;left:18px;top:54px;z-index:9999;color:#fffa;font-weight:900;font-size:20px;letter-spacing:1px;user-select:none;pointer-events:none;text-shadow:0 2px 8px #0008,0 0 2px #fff;">连击 ×1</div>
     <div class="progress-wrap" title="进度（收集 5 个触发一句话）">
       <div class="progress-bar" id="progressBar"></div>
     </div>
@@ -144,11 +163,19 @@ const CONFIG = {
   basketFile: 'basket.png',
   pic1Files: ['xy1.jpg', 'xy2.jpg', 'xy3.jpg'],
   pic2Files: ['lc1.jpg', 'lc2.jpg', 'lc3.jpg'],
-  neededPerDialogue: 5,
+  neededPerDialogue: 10,
   spawnInterval: 900,
   starMin: 15,
   starMax: 20,
-  introDuration: 2000
+  introDuration: 2000,
+  // 新增掉落物文件名与配置
+  fallingTypes: [
+    { type: 'bomb', file: 'bomb.png', score: -1, weight: 3 },
+    { type: 'xxxz', file: 'xxxz.png', score: 5, weight: 1 },
+    { type: 'chxz', file: 'chxz.png', score: 5, weight: 1 }
+  ],
+  maxCoins: 24,
+  maxFalling: 8
 };
 
 /* ========== 台词（根据选择的头像显示不同文本） ========== */
@@ -195,16 +222,57 @@ const startOverlay = document.getElementById('startOverlay');
 const startBtn = document.getElementById('startBtn');
 const starsLayer = document.getElementById('starsLayer');
 
+// 开始页默认显示（不自动隐藏）
+
+/* ========== 音效与振动（SFX） ========== */
+const SFX_VOLUME = 0.6; // 所有音效统一音量（0.0 - 1.0）
+const bgmEl = document.getElementById('bgm');
+try{ if (bgmEl) bgmEl.volume = 0.45; } catch(e){}
+
+const sfx = {
+  coin: new Audio(CONFIG.imagesPath + 'coin1.mp3'),
+  coin2: new Audio(CONFIG.imagesPath + 'coin2.mp3'),
+  bomb: new Audio(CONFIG.imagesPath + 'bomb.mp3')
+};
+Object.values(sfx).forEach(a=>{ a.preload = 'auto'; a.volume = SFX_VOLUME; a.crossOrigin = 'anonymous'; });
+
+// Combo 系统（只统计连续收金币，炸弹清零）
+let combo = 0;
+let comboTimer = null;
+const COMBO_TIMEOUT = 1500; // ms
+const comboEl = document.getElementById('combo');
+function increaseCombo(){
+  combo++;
+  if(comboEl) comboEl.textContent = '连击 ×' + combo;
+  clearTimeout(comboTimer);
+  comboTimer = setTimeout(()=>{ combo = 0; if(comboEl) comboEl.textContent = '连击 ×1'; }, COMBO_TIMEOUT);
+}
+function resetCombo(){ combo = 0; clearTimeout(comboTimer); if(comboEl) comboEl.textContent = '连击 ×1'; }
+
+function getMultiplier(){
+  // multiplier grows with combo but caps to 5x
+  return Math.max(1, Math.min(5, Math.floor(combo/3) + 1));
+}
+
+// 震动封装（兼容性）
+function tryVibrate(ms){ if (navigator && navigator.vibrate) try{ navigator.vibrate(ms); } catch(e){} }
+
 /* 游戏状态 */
 let coins = [];
 let particles = [];
+let fallingItems = []; // 新增：通用掉落物（bomb / xxxz / chxz）
 let score = 0;
 let dialogVisible = false;
 let progress = 0;
 let running = false;
 let spawnTimer = null;
+let itemSpawnTimer = null;
 let animReq = null;
 let logicTimer = null;
+let rafId = null; // <- 新增：用于 requestAnimationFrame 循环标识
+let paused = false; // 新增：暂停开关
+// 记录用于检测每10分触发一次对话的状态（使用 prev/current tick 计算）
+let lastScoreTick = Math.floor(score / 10);
 
 /* 篮子 */
 const basket = {
@@ -232,7 +300,7 @@ function clamp(v,a,b){ return Math.max(a, Math.min(b, v)) }
 
 /* ========== 金币生成与粒子效果 ========== */
 function spawnCoin(filename) {
-  if (coins.length > 24) return;
+  if (coins.length > CONFIG.maxCoins) return;
   const size = rand(30, 56);
   const x = rand(20, W - 20 - size);
   const y = -size;
@@ -244,7 +312,34 @@ function spawnCoin(filename) {
   img.src = CONFIG.imagesPath + file;
   img.onerror = () => { /* fallback handled in draw */ };
 
-  coins.push({ x, y, size, speed, rot, img });
+  // 存储文件名以便绘制不同的发光
+  coins.push({ x, y, size, speed, rot, img, file });
+}
+
+/* 新增：生成掉落物（bomb / xxxz / chxz） */
+function spawnFallingItem() {
+  if (fallingItems.length >= CONFIG.maxFalling) return;
+  // 选择带权重的掉落物，减少稀有奖励的出现概率
+  const pool = [];
+  CONFIG.fallingTypes.forEach(ft => {
+    const w = ft.weight || 1;
+    for (let i = 0; i < w; i++) pool.push(ft);
+  });
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  const size = rand(34, 62);
+  const x = rand(20, W - 20 - size);
+  const y = -size;
+  const speed = rand(2.8, 4.8);
+  const rot = rand(-0.4, 0.4);
+  const img = new Image();
+  img.src = CONFIG.imagesPath + pick.file;
+  img.onerror = () => {};
+  fallingItems.push({
+    type: pick.type,
+    file: pick.file,
+    x, y, size, speed, rot, img,
+    score: pick.score
+  });
 }
 
 function spawnParticles(x,y,color='rgba(255,220,240,0.95)'){
@@ -261,17 +356,102 @@ function spawnParticles(x,y,color='rgba(255,220,240,0.95)'){
   }
 }
 
-/* ========== 绘制函数 ========== */
+/* ========== 分数统一更新（确保每到 10 分触发一次对话） ========== */
+function addScore(delta){
+  const prev = score;
+  score = Math.max(0, score + (delta || 0));
+  // 更新显示与存储
+  scoreElUpdate();
+  saveScoresToStorage();
+
+  // 若越过 10 的刻度（例如 9 -> 11），触发一次对话
+  const prevTick = Math.floor(prev / 10);
+  const newTick = Math.floor(score / 10);
+  if (newTick > prevTick) {
+    const times = newTick - prevTick;
+    for (let i = 0; i < times; i++) {
+      setTimeout(()=>{ try { triggerDialogue(); } catch (e){} }, 220 * i);
+    }
+  }
+}
+
+/* ========== 进度统一更新：支持溢出保留并按阈值触发对话（carry-over） ========== */
+function addProgress(amount){
+  if (!amount || amount <= 0) return;
+  progress += amount;
+  const needed = CONFIG.neededPerDialogue;
+  // 计算触发次数与剩余进度
+  const triggers = Math.floor(progress / needed);
+  progress = progress % needed;
+  // 更新进度条显示
+  progressBar.style.width = (progress / needed * 100) + '%';
+  // 若有触发次数，按顺序入队触发（稍微错开以便队列显示）
+  for(let i=0;i<triggers;i++){
+    setTimeout(()=>{ triggerDialogue(); }, 220 * i);
+  }
+}
+
+/* ========== 绘制函数（增强：为不同金币颜色加外发光） ========== */
 function draw(){
   ctx.clearRect(0,0,W,H);
 
-  // 绘制金币
+  // 绘制金币（带渐变外发光）
   coins.forEach(c=>{
     ctx.save();
-    ctx.translate(c.x + c.size/2, c.y + c.size/2);
+
+    // 根据文件名选择 glow 颜色
+    const fname = (c.file || '').toLowerCase();
+    let glow = 'rgba(255,200,240,0.9)'; // fallback
+    if (fname.indexOf('coin.png') !== -1 || fname.indexOf('coin') !== -1 && fname.indexOf('coin2') === -1) {
+      glow = 'rgba(124,255,211,0.85)'; // #7cffd3
+    }
+    if (fname.indexOf('coin2') !== -1) {
+      glow = 'rgba(255,95,126,0.88)'; // #ff5f7e
+    }
+
+    // 先绘制更大的模糊圆来表现渐变发光
+    const gx = c.x + c.size/2;
+    const gy = c.y + c.size/2;
+    const rg = ctx.createRadialGradient(gx, gy, c.size*0.15, gx, gy, c.size*1.3);    // ...existing code...
+    /* start 按钮绑定（只触发开场特效与启动） */
+    startBtn.addEventListener('click', ()=>{
+      startOverlay.style.display = 'none';
+      playIntroEffectAndStart();
+      // 启动掉落物定时器
+      if (itemSpawnTimer) clearInterval(itemSpawnTimer);
+      itemSpawnTimer = setInterval(spawnFallingItem, Math.max(1200, CONFIG.spawnInterval * 1.1));
+    });
+    // ...existing code...    // ...existing code...
+    /* start 按钮绑定（只触发开场特效与启动） */
+    startBtn.addEventListener('click', ()=>{
+      startOverlay.style.display = 'none';
+      playIntroEffectAndStart();
+      // 启动掉落物定时器
+      if (itemSpawnTimer) clearInterval(itemSpawnTimer);
+      itemSpawnTimer = setInterval(spawnFallingItem, Math.max(1200, CONFIG.spawnInterval * 1.1));
+    });
+    // ...existing code...    // ...existing code...
+    /* start 按钮绑定（只触发开场特效与启动） */
+    startBtn.addEventListener('click', ()=>{
+      startOverlay.style.display = 'none';
+      playIntroEffectAndStart();
+      // 启动掉落物定时器
+      if (itemSpawnTimer) clearInterval(itemSpawnTimer);
+      itemSpawnTimer = setInterval(spawnFallingItem, Math.max(1200, CONFIG.spawnInterval * 1.1));
+    });
+    // ...existing code...
+    rg.addColorStop(0, glow);
+    rg.addColorStop(0.6, 'rgba(0,0,0,0)');
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.ellipse(gx, gy, c.size*1.35, c.size*1.35, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.translate(gx, gy);
     ctx.rotate(c.rot);
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = 'rgba(255,200,240,0.9)';
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = glow;
+
     if (c.img && c.img.complete && c.img.naturalWidth) {
       ctx.drawImage(c.img, -c.size/2, -c.size/2, c.size, c.size);
     } else {
@@ -279,6 +459,28 @@ function draw(){
       g.addColorStop(0,'#fffdd8'); g.addColorStop(1,'#ffc94a');
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(0,0,c.size/2,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  });
+
+  // 绘制掉落物（bomb / xxxz / chxz）
+  fallingItems.forEach(it=>{
+    ctx.save();
+    const gx = it.x + it.size/2;
+    const gy = it.y + it.size/2;
+    // bomb 使用红色微弱发光，奖励物品使用金色光
+    if (it.type === 'bomb') {
+      ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(255,90,90,0.9)';
+    } else {
+      ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(255,220,140,0.9)';
+    }
+    ctx.translate(gx, gy);
+    ctx.rotate(it.rot);
+    if (it.img && it.img.complete && it.img.naturalWidth) {
+      ctx.drawImage(it.img, -it.size/2, -it.size/2, it.size, it.size);
+    } else {
+      ctx.fillStyle = it.type === 'bomb' ? 'rgba(200,60,60,0.95)' : 'rgba(255,215,120,0.95)';
+      ctx.beginPath(); ctx.arc(0,0,it.size/2,0,Math.PI*2); ctx.fill();
     }
     ctx.restore();
   });
@@ -313,18 +515,56 @@ function draw(){
   animReq = requestAnimationFrame(draw);
 }
 
-/* ========== 收集逻辑 ========== */
-function onCoinCollected(cx, cy){
-  score++;
-  progress++;
-  scoreElUpdate();
-  spawnParticles(cx, cy);
-  showPickupFly('+1', cx, cy);
+/* ========== 收集逻辑（扩展：处理掉落物与暂停） ========== */
+function onCoinCollected(coin, cx, cy){
+  // coin pickup: play sfx, increase combo, award score (with multiplier), add progress
+  try{
+    // play coin sfx (both coin1/coin2 visuals use coin1.mp3 per config)
+    if (sfx && sfx.coin) { try{ sfx.coin.currentTime = 0; sfx.coin.volume = SFX_VOLUME; sfx.coin.play().catch(()=>{}); } catch(e){} }
+  }catch(e){}
+  tryVibrate(20);
 
-  if (progress >= CONFIG.neededPerDialogue) {
-    progress = 0;
-    progressBar.style.width = '0%';
-    setTimeout(()=>{ triggerDialogue(); }, 220);
+  increaseCombo();
+  const mult = getMultiplier();
+  addScore(1 * mult);
+  // progress counts raw item value (not multiplied)
+  addProgress(1);
+  spawnParticles(cx, cy);
+  showPickupFly((mult > 1 ? ('×' + mult + ' +') : '+') + '1', cx, cy);
+}
+
+/* 处理掉落物被篮子接到 */
+function onFallingItemCollected(it, cx, cy){
+  // falling item pickup: handle bomb vs reward, with sfx, combo and vibration
+  if (it.type === 'bomb'){
+    // bomb: play bomb sfx, vibrate, reset combo, deduct score and rollback progress
+    try{ if (sfx && sfx.bomb) { sfx.bomb.currentTime = 0; sfx.bomb.volume = SFX_VOLUME; sfx.bomb.play().catch(()=>{}); } }catch(e){}
+    tryVibrate([60,30]);
+    resetCombo();
+    // apply negative score (clamped by addScore)
+    addScore(it.score || 0);
+    // progress decrease by 1
+    progress = Math.max(0, progress - 1);
+    // show male lead dialogue with explosion effect
+    enqueueDialog({
+      imgSrc: CONFIG.imagesPath + ([...CONFIG.pic1Files, ...CONFIG.pic2Files][Math.floor(Math.random() * (CONFIG.pic1Files.length + CONFIG.pic2Files.length))]),
+      name: '男主',
+      text: ['【男主A】…我劝你别再乱接了。','【男主B】…你这样我会担心的。','【男主A】…笨蛋，炸弹不能接啊。','【男主B】…过来，我教你怎么玩。'][Math.floor(Math.random()*4)],
+      bg: 'rgba(0,0,0,0.64)',
+      nameColor: '#FFD700',
+      duration: 2000,
+      explosion: true
+    }, true);
+  } else {
+    // reward: play reward sfx, vibrate, increase combo, award score * multiplier, progress by item value
+    try{ if (sfx && sfx.coin2) { sfx.coin2.currentTime = 0; sfx.coin2.volume = SFX_VOLUME; sfx.coin2.play().catch(()=>{}); } }catch(e){}
+    tryVibrate(30);
+    increaseCombo();
+    const mult = getMultiplier();
+    addScore((it.score || 0) * mult);
+    spawnParticles(cx, cy, 'rgba(255,230,170,0.95)');
+    showPickupFly((mult > 1 ? ('×' + mult + ' +' ) : '+') + Math.abs(it.score), cx, cy);
+    addProgress(Math.abs(it.score || 0));
   }
 }
 
@@ -350,6 +590,23 @@ function scoreElUpdate(){
   scoreEl.textContent = `💰 ${score}`;
   const pct = (progress / CONFIG.neededPerDialogue) * 100;
   progressBar.style.width = pct + '%';
+
+  // 保存本次分数与历史记录（last, best, today）
+  try {
+    localStorage.setItem("lastScore", String(score));
+    const best = parseInt(localStorage.getItem("bestScore") || '0', 10) || 0;
+    if (score > best) {
+      localStorage.setItem("bestScore", String(score));
+    }
+    const today = new Date().toLocaleDateString();
+    const todayKey = "score_" + today;
+    const todayBest = parseInt(localStorage.getItem(todayKey) || '0', 10) || 0;
+    if (score > todayBest) {
+      localStorage.setItem(todayKey, String(score));
+    }
+  } catch (e) {
+    // 本地存储失败则忽略
+  }
 }
 
 /* 交互：指针与键盘 */
@@ -372,6 +629,8 @@ window.addEventListener('keydown', e=>{
 function startGameLoops(){
   if (logicTimer) clearInterval(logicTimer);
   logicTimer = setInterval(()=>{
+    if (paused) return; // 暂停时跳过逻辑更新
+
     for(let i = coins.length-1;i>=0;i--){
       const c = coins[i];
       c.y += c.speed;
@@ -379,10 +638,32 @@ function startGameLoops(){
       if(c.y + c.size > basket.y &&
          c.x + c.size > basket.x &&
          c.x < basket.x + basket.w){
-        onCoinCollected(c.x + c.size/2, c.y + c.size/2);
+          onCoinCollected(c, c.x + c.size/2, c.y + c.size/2);
         coins.splice(i,1);
       } else if(c.y > H + 80){
         coins.splice(i,1);
+      }
+    }
+
+    // 更新掉落物位置、碰撞判定（按你提供的逻辑）
+    for (let i = fallingItems.length - 1; i >= 0; i--) {
+      const it = fallingItems[i];
+      it.y += it.speed;
+      it.rot += 0.02;
+
+      const hit =
+        it.y + it.size > basket.y &&
+        it.x + it.size > basket.x &&
+        it.x < basket.x + basket.w;
+
+      if (hit) {
+        onFallingItemCollected(it, it.x + it.size/2, it.y + it.size/2);
+        fallingItems.splice(i, 1);
+        continue;
+      }
+
+      if (it.y > H + 60) {
+        fallingItems.splice(i, 1);
       }
     }
   }, 30);
@@ -427,10 +708,7 @@ function playIntroEffectAndStart(){
 
 /* ========== 对话触发器 ========== */ //Dialog trigger//
 function triggerDialogue() {
-  if (dialogVisible) return;
-  dialogVisible = true;
-
-  // 选择角色与图片
+  // 构建 dialogue 内容并加入队列（非优先）
   const pick = Math.random() < 0.5 ? 'pic1' : 'pic2';
   const conf = DIALOGUES[pick];
   const poolName = pick + 'Pool';
@@ -456,114 +734,350 @@ function triggerDialogue() {
   }
   window._lastDialogPrev = nextLine;
 
-  // 构建临时对话 DOM（挂在 document.body，避免被 startOverlay 隐藏）
-  const el = document.createElement('div');
-  el.className = 'dialog show';
-  // 不使用 id，避免重复 id 冲突
-  el.innerHTML = `
-    <img class="dialog-pic" alt="头像">
-    <div class="txt">
-      <div class="name">${conf.name}</div>
-      <div class="line"></div>
-    </div>
-  `;
-  // 插入到 body（确保在最上层）
-  document.body.appendChild(el);
-
-  // 设置图片（安全加载）
-  const imgEl = el.querySelector('.dialog-pic');
-  imgEl.src = imgSrc;
-  imgEl.onerror = () => { imgEl.remove(); }; // 若图片加载失败，移除 img 保证布局不崩
-
-  // 设置样式（名字与台词颜色）
-  const nameEl = el.querySelector('.name');
-  const lineEl = el.querySelector('.line');
-  nameEl.style.color = "#FFD700";
+  // 样式选择
+  let bg = null;
+  let nameColor = '#FFD700';
+  let lineColor = '#fff';
   if (pick === 'pic1') {
-    lineEl.style.color = "#00FF9C";
-    el.style.background = "rgba(128,0,0,0.35)";
+    bg = "rgba(128,0,0,0.35)";
+    nameColor = '#FFD700';
+    lineColor = '#7cffd3';
   } else {
-    lineEl.style.color = "#e64a1c";
-    el.style.background = "rgba(0,255,128,0.35)";
+    bg = "rgba(0,255,128,0.35)";
+    nameColor = '#FFD700';
+    lineColor = '#ff5f7e';
   }
 
-  // 放在篮子上方位置
-  el.style.bottom = (H - basket.y + 20) + 'px';
-
-  // 打字机效果（requestAnimationFrame）
-  (function typeWriter(text, targetEl) {
-    let i = 0;
-    function typing() {
-      if (i < text.length) {
-        targetEl.textContent += text.charAt(i++);
-        requestAnimationFrame(typing);
-      }
-    }
-    typing();
-  })(nextLine, lineEl);
-
-  // 自动移除与状态重置
-  const removeAfter = 3000;
-  const t = setTimeout(() => {
-    // 轻量动画：移除 show 类（依赖现有 .dialog.show -> visible），然后彻底移除节点
-    el.classList.remove('show');
-    // 小延迟以便 CSS transition 生效后移除 DOM
-    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 420);
-    dialogVisible = false;
-    clearTimeout(t);
-  }, removeAfter);
+  enqueueDialog({ imgSrc, name: conf.name, text: nextLine, bg, nameColor, lineColor, duration: 3000 }, false);
 }
 
 
-/* start 按钮绑定（只触发开场特效与启动） */
-startBtn.addEventListener('click', ()=>{
-  startOverlay.style.display = 'none';
-  playIntroEffectAndStart();
+/* ========== 轻量非阻塞临时对话（替代 alert） ========== */
+// 对话队列（确保对话顺序：bomb 优先）
+const dialogQueue = [];
+let dialogProcessing = false;
+
+function enqueueDialog(options, priority = false){
+  if(priority) dialogQueue.unshift(options);
+  else dialogQueue.push(options);
+  processDialogQueue();
+}
+
+function processDialogQueue(){
+  if(dialogProcessing) return;
+  const next = dialogQueue.shift();
+  if(!next) return;
+  dialogProcessing = true;
+  showDialog(next).then(()=>{
+    dialogProcessing = false;
+    // proceed to next
+    setTimeout(processDialogQueue, 60);
+  });
+}
+
+function showDialog(opts){
+  return new Promise(resolve => {
+  const { imgSrc, name, text, bg = null, nameColor = '#FFD700', lineColor = null, duration = 2200 } = opts || {};
+    // 可选爆炸特效（用于 bomb）
+    if (opts && opts.explosion) {
+      try{
+        const ex = document.createElement('div');
+        ex.className = 'explosion';
+        const blast = document.createElement('div'); blast.className = 'blast';
+        ex.appendChild(blast);
+        // create shards
+        for(let i=0;i<8;i++){
+          const s = document.createElement('div'); s.className='shard';
+          const ang = Math.random()*Math.PI*2; const r = 24 + Math.random()*28;
+          s.style.left = '50%'; s.style.top='50%';
+          s.style.transform = `translate(${Math.cos(ang)*r}px, ${Math.sin(ang)*r}px)`;
+          s.style.transition = 'opacity .5s linear, transform .5s linear';
+          ex.appendChild(s);
+        }
+        document.body.appendChild(ex);
+        setTimeout(()=>{ if(ex.parentNode) ex.parentNode.removeChild(ex); }, Math.max(700, duration));
+      }catch(e){}
+    }
+    const el = document.createElement('div');
+    el.className = 'dialog show';
+    el.style.position = 'fixed';
+    el.style.left = '50%';
+    el.style.transform = 'translateX(-50%)';
+    el.style.bottom = (window.innerHeight - (basket.y || (window.innerHeight - 140)) + 20) + 'px';
+    el.style.zIndex = 99999;
+    if (bg) el.style.background = bg;
+
+    el.innerHTML = `
+      <img class="dialog-pic" src="" alt="头像">
+      <div class="txt">
+        <div class="name"></div>
+        <div class="line"></div>
+      </div>
+    `;
+
+    const imgEl = el.querySelector('.dialog-pic');
+    if (imgSrc) {
+      imgEl.src = imgSrc;
+      imgEl.onerror = () => imgEl.remove();
+    } else {
+      imgEl.remove();
+    }
+
+  const nameEl = el.querySelector('.name');
+  const lineEl = el.querySelector('.line');
+  nameEl.textContent = name || '';
+  nameEl.style.color = nameColor;
+  if (lineColor) lineEl.style.color = lineColor;
+
+    // 打字机效果
+    (function typeWriter(txt, targetEl){
+      let i = 0;
+      function typing(){
+        if(i < txt.length){ targetEl.textContent += txt.charAt(i++); requestAnimationFrame(typing); }
+      }
+      typing();
+    })(text || '', lineEl);
+
+    document.body.appendChild(el);
+
+    setTimeout(()=>{
+      el.classList.remove('show');
+      setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); resolve(); }, 420);
+    }, Math.max(900, duration));
+  });
+}
+
+// 兼容原 showTempDialog API：将请求加入队列（默认非优先）
+function showTempDialog(options){ enqueueDialog(options, false); }
+
+/* 新增：男主对白（接到 bomb 时触发） */
+function showMaleLeadDialogue() {
+  const lines = [
+    "【男主A】…我劝你别再乱接了。",
+    "【男主B】…你这样我会担心的。",
+    "【男主A】…笨蛋，炸弹不能接啊。",
+    "【男主B】…过来，我教你怎么玩。"
+  ];
+  const line = lines[Math.floor(Math.random() * lines.length)];
+  // 随机取 pic1 或 pic2 池里面的一张图（兼容原配置）
+  const allPics = [...CONFIG.pic1Files, ...CONFIG.pic2Files];
+  const img = allPics[Math.floor(Math.random() * allPics.length)];
+  // bomb 对话优先展现（priority = true），显示 2s
+  enqueueDialog({
+    imgSrc: CONFIG.imagesPath + img,
+    name: '男主',
+    text: line,
+    bg: 'rgba(0,0,0,0.64)',
+    nameColor: '#FFD700',
+    duration: 2000
+  }, true);
+}
+
+/* 返回主页按钮：显示粉色对话后再跳转（打字机 + 随机图片） */
+const backBtnEl = document.getElementById('backBtn');
+backBtnEl.addEventListener('click', (e) => {
+  e.preventDefault();
+  const lines = [
+    "回到首页了，别忘了再来玩。",
+    "要不要先保存一下成绩？",
+    "下次我还等着你哦。"
+  ];
+  const line = lines[Math.floor(Math.random() * lines.length)];
+  const allPics = [...CONFIG.pic1Files, ...CONFIG.pic2Files];
+  const img = allPics[Math.floor(Math.random() * allPics.length)];
+  showTempDialog({
+    imgSrc: CONFIG.imagesPath + img,
+    name: '系统',
+    text: line,
+    bg: 'rgba(255,150,200,0.22)', // 粉色透明
+    nameColor: '#FFD700',
+    duration: 1200
+  });
+  // 稍后跳转，给打字机效果时间
+  setTimeout(() => { location.href = 'index.html'; }, 1300);
 });
 
-/* 窗口调整 */
-window.addEventListener('resize', ()=>{
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-  basket.x = clamp(basket.x, 8, W - basket.w - 8);
-});
+/* 更新 HUD 存档：使用用户给出的存储方式（简洁版） */
+function saveScoresToStorage() {
+  try {
+    localStorage.setItem("lastScore", score);
 
-/* 点击画布收集金币（修正判定半径） */
-canvas.addEventListener('click', (e)=>{
-  const rect = canvas.getBoundingClientRect();
-  const cx = e.clientX - rect.left;
-  const cy = e.clientY - rect.top;
-  for(let i = coins.length-1; i>=0; i--){
+    // 最高分
+    let best = localStorage.getItem("bestScore") || 0;
+    if (score > best) {
+      localStorage.setItem("bestScore", score);
+    }
+
+    // 今日最高
+    const today = new Date().toLocaleDateString();
+    const todayKey = "score_" + today;
+
+    let todayBest = localStorage.getItem(todayKey) || 0;
+    if (score > todayBest) {
+      localStorage.setItem(todayKey, score);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+/* 用新的 update 循环替换掉原来的 setInterval 逻辑；按用户要求处理 fallingItems 碰撞片段 */
+function update() {
+  // paused 时仍保持 loop 但跳过更新（符合你提供的 if (paused) return requestAnimationFrame(update);）
+  if (paused) {
+    rafId = requestAnimationFrame(update);
+    return;
+  }
+
+  // coins 更新
+  for (let i = coins.length - 1; i >= 0; i--) {
     const c = coins[i];
-    const dx = cx - (c.x + c.size/2);
-    const dy = cy - (c.y + c.size/2);
-    if(Math.sqrt(dx*dx + dy*dy) < c.size/2){
-      coins.splice(i,1);
-      onCoinCollected(cx, cy);
-      break;
+    c.y += c.speed;
+    c.rot += 0.01;
+    if (c.y + c.size > basket.y &&
+        c.x + c.size > basket.x &&
+        c.x < basket.x + basket.w) {
+      onCoinCollected(c, c.x + c.size/2, c.y + c.size/2);
+      coins.splice(i, 1);
+    } else if (c.y > H + 80) {
+      coins.splice(i, 1);
     }
   }
+
+  // fallingItems 更新 — 使用你提供的行为，注意修正 basket.width -> basket.w
+  for (let i = fallingItems.length - 1; i >= 0; i--) {
+    const it = fallingItems[i];
+    // 固定速度 3（你示例中用 3），但保留原 speed 如果需要可替换为 it.speed
+    it.y += 3;
+
+    const hit =
+      it.y + it.size > basket.y &&
+      it.x + it.size > basket.x &&
+      it.x < basket.x + basket.w;
+
+    if (hit) {
+      // 更新分数（使用 addScore 处理 10 分触发）
+      addScore(it.score || 0);
+
+      if (it.type === "bomb") {
+        // bomb 特殊处理：回退进度并显示男主对白
+        progress = Math.max(0, progress - 1);
+        showMaleLeadDialogue();
+      } else {
+        // 其他奖励物品产生拾取特效并按分值计入进度（溢出保留）
+        spawnParticles(it.x + it.size/2, it.y + it.size/2, 'rgba(255,230,170,0.95)');
+        showPickupFly((it.score > 0 ? '+' : '') + it.score, it.x + it.size/2, it.y + it.size/2);
+        addProgress(Math.abs(it.score || 0));
+      }
+
+      // fallingItems 被接收，移除
+      fallingItems.splice(i, 1);
+      continue;
+    }
+
+    if (it.y > H + 40) {
+      fallingItems.splice(i, 1);
+    }
+  }
+
+  // 请求下一帧
+  rafId = requestAnimationFrame(update);
+}
+
+/* 将原来的定时器启动替换为：startGameLoops() 仍启动 spawnTimer 与 itemSpawnTimer，但使用 raf update */
+const origStartGameLoops = window.startGameLoops;
+window.startGameLoops = function() {
+  // 清理原有定时器（若存在）
+  if (typeof logicTimer !== 'undefined' && logicTimer) { clearInterval(logicTimer); logicTimer = null; }
+  // spawnTimer 由 playIntroEffectAndStart 创建/管理；这里只启动 raf
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(update);
+  // 保持兼容：调用原函数以保留其它副作用（如果原函数存在）
+  if (typeof origStartGameLoops === 'function') {
+    try { origStartGameLoops(); } catch (e) { /* ignore */ }
+  }
+};
+
+/* 覆盖 scoreElUpdate 以确保写入你要求的 localStorage 格式（并保留进度条更新） */
+const origScoreElUpdate = window.scoreElUpdate;
+window.scoreElUpdate = function() {
+  // 原有显示逻辑（保留）
+  if (typeof origScoreElUpdate === 'function') {
+    try { origScoreElUpdate(); } catch (e) { /* ignore */ }
+  } else {
+    scoreEl.textContent = `💰 ${score}`;
+    const pct = (progress / CONFIG.neededPerDialogue) * 100;
+    progressBar.style.width = pct + '%';
+  }
+  // 保存简洁版本
+  saveScoresToStorage();
+};
+
+/* 页面 show 事件：保留原有提示流程（若 lastScore 存在则弹一句），但改用临时对话（不使用 alert） */
+window.addEventListener("pageshow", () => {
+  try{ if (localStorage.getItem('startClicked') === '1') return; } catch(e){}
+  const lastPlayed = localStorage.getItem("lastScore");
+  if (lastPlayed) {
+    const lines = [
+      "【男主A】…又回来了？我还以为你不要我了。",
+      "【男主B】…这么快就回首页？我还没跟你玩够。",
+      "【男主A】…你的游戏成绩我都看到了，很可爱。",
+      "【男主B】…回来就好，我还以为你迷路了。"
+    ];
+    const line = lines[Math.floor(Math.random() * lines.length)];
+    // 随机图片
+    const allPics = [...CONFIG.pic1Files, ...CONFIG.pic2Files];
+    const img = allPics[Math.floor(Math.random() * allPics.length)];
+    showTempDialog({
+      imgSrc: CONFIG.imagesPath + img,
+      name: '男主',
+      text: line,
+      bg: 'rgba(0,0,0,0.55)',
+      nameColor: '#FFD700',
+      duration: 2200
+    });
+  }
 });
 
-/* 初始绘制，避免黑屏 */
-(function initialPaint(){
-  ctx.clearRect(0,0,W,H);
-  const g = ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'rgba(20,10,40,0.35)');
-  g.addColorStop(1,'rgba(3,1,9,0.55)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0,0,W,H);
+/* 启动时确保 startBtn 只有一个 listener（防止重复） */
+startBtn.removeEventListener && startBtn.removeEventListener('click', playIntroEffectAndStart);
+startBtn.addEventListener('click', ()=>{
+  startOverlay.style.display = 'none';
+  try{ localStorage.setItem('startClicked', '1'); }catch(e){}
+  playIntroEffectAndStart();
+  if (itemSpawnTimer) clearInterval(itemSpawnTimer);
+  itemSpawnTimer = setInterval(spawnFallingItem, Math.max(1200, CONFIG.spawnInterval * 1.1));
+});
 
-  if(basket.img){ ctx.drawImage(basket.img, basket.x, basket.y, basket.w, basket.h); }
-  else{
-    ctx.fillStyle = 'rgba(255,192,203,0.9)';
-    ctx.fillRect(basket.x, basket.y, basket.w, basket.h*0.6);
-  }
-})();
+// resetStartBtn 用来清除 startClicked，使开始覆盖页再次可见（便于调试或恢复）
+const resetStartBtn = document.getElementById('resetStartBtn');
+if (resetStartBtn) {
+  resetStartBtn.addEventListener('click', ()=>{
+    try{ localStorage.removeItem('startClicked'); }catch(e){}
+    startOverlay.style.display = 'flex';
+    // small visual hint
+    resetStartBtn.textContent = '已重置';
+    setTimeout(()=> resetStartBtn.textContent = '重置开始页', 1200);
+  });
+}
+</script>
+<!-- 在此处插入暂停/继续按钮 -->
+<div style="position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:9;">
+  <button id="pauseBtn" style="padding:6px 12px;border-radius:8px;border:none;background:rgba(255,255,255,0.08);color:#fff;margin-right:8px;cursor:pointer;">⏸ 暂停</button>
+  <button id="resumeBtn" style="display:none;padding:6px 12px;border-radius:8px;border:none;background:rgba(255,255,255,0.12);color:#fff;cursor:pointer;">▶ 继续</button>
+</div>
 
-/* 可选停止函数（便于调试） */
-// function stopGame() { clearInterval(spawnTimer); clearInterval(logicTimer); cancelAnimationFrame(animReq); }
+<script>
+// 暂停逻辑
+document.getElementById("pauseBtn").onclick = () => {
+  paused = true;
+  document.getElementById("pauseBtn").style.display = "none";
+  document.getElementById("resumeBtn").style.display = "inline-block";
+};
 
+document.getElementById("resumeBtn").onclick = () => {
+  paused = false;
+  document.getElementById("resumeBtn").style.display = "none";
+  document.getElementById("pauseBtn").style.display = "inline-block";
+};
 </script>
 <!-- 背景音乐 -->
 <audio id="bgm" src="audio4.mp3" autoplay loop></audio>
@@ -600,6 +1114,7 @@ document.addEventListener("click", function () {
 
 const bgm = document.getElementById("bgm");
 const muteBtn = document.getElementById("muteButton");
+try{ if (bgm) bgm.volume = 0.45; } catch(e){}
 
 muteBtn.addEventListener("click", () => {
   if (bgm.muted) {
@@ -608,6 +1123,29 @@ muteBtn.addEventListener("click", () => {
   } else {
     bgm.muted = true;
     muteBtn.textContent = "🔇";
+  }
+});
+</script>
+<!-- 页面显示时的欢迎（若存在 lastScore） -->
+<script>
+window.addEventListener("pageshow", () => {
+  const lastPlayed = localStorage.getItem("lastScore");
+
+  if (lastPlayed) {
+    const lines = [
+      "【男主A】…又回来了？我还以为你不要我了。",
+      "【男主B】…这么快就回首页？我还没跟你玩够。",
+      "【男主A】…你的游戏成绩我都看到了，很可爱。",
+      "【男主B】…回来就好，我还以为你迷路了。"
+    ];
+    // 使用非阻塞临时对话替代阻塞 alert
+    showTempDialog({
+      imgSrc: CONFIG.imagesPath + ([...CONFIG.pic1Files, ...CONFIG.pic2Files][Math.floor(Math.random() * (CONFIG.pic1Files.length + CONFIG.pic2Files.length))]),
+      name: '男主',
+      text: lines[Math.floor(Math.random() * lines.length)],
+      bg: 'rgba(0,0,0,0.55)',
+      duration: 2200
+    });
   }
 });
 </script>
