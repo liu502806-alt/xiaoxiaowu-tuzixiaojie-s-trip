@@ -4,405 +4,94 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>萧小五/兔子小姐の奇妙旅途 - 主页面</title>
-
-
 <style>
 body {
   margin: 0;
   font-family: "Hiragino Maru Gothic Pro", "PingFang SC", sans-serif;
   background: linear-gradient(180deg, #ffe7ef, #def6ff);
-  height: 100vh;
+  min-height: 100vh;               /* 改为 min-height 以允许内容超出并滚动 */
   display: flex;
   flex-direction: column;
-  justify-content: center;   /* 垂直居中 */
-  align-items: center;       /* 水平居中 */
+  justify-content: flex-start;    /* 从垂直居中改为靠上，页面可自然拓展并滚动 */
+  align-items: center;
   text-align: center;
+  padding: 48px 18px;             /* 给顶部和底部留出空间 */
+  box-sizing: border-box;
+  overflow-y: auto;               /* 确保纵向可滚动 */
 }
-
-/* 标题 *//* Title*/
-.title {
-  font-size: 2.3rem;
-  color: #ff6ca8;
-  text-shadow: 0 2px 6px rgba(255,150,180,0.35);
-  animation: fadeIn 1s;
-  margin-bottom: 30px;
-}
-
-/* 按钮组 *//* bottom set*/
-.button-group {
-  display: flex;
+/* 新增：页面初始状态（标题垂直居中） */
+body.home {
   justify-content: center;
-  gap: 25px;
-  margin-bottom: 25px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
+.title { font-size: 2.3rem; color: #ff6ca8; text-shadow: 0 2px 6px rgba(255,150,180,0.35); animation: fadeIn 1s; margin-bottom: 30px; }
+.button-group { display: flex; justify-content: center; gap: 25px; margin-bottom: 25px; }
+.button-group button { background: rgba(255,255,255,0.75); border: none; padding: 14px 28px; border-radius: 20px; font-size: 1.15rem; cursor: pointer; box-shadow: 0 6px 12px rgba(255, 170, 200, 0.3); transition: .2s; }
+.button-group button:hover { background: #ffe3f0; transform: scale(1.07); }
+canvas { border-radius: 12px; width: 100%; }
+@keyframes fadeIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+.modeBtn { width:45px; height:45px; border-radius:50%; border:none; background:#ffffffcc; box-shadow:0 3px 8px rgba(0,0,0,0.15); font-size:20px; cursor:pointer; transition:0.25s; }
+.modeBtn:hover { transform:scale(1.08); background:#ffe6f2; }
+.modeBtn.active { background:#ff8fb7; color:white; }
 
-.button-group button {
-  background: rgba(255,255,255,0.75);
-  border: none;
-  padding: 14px 28px;
-  border-radius: 20px;
-  font-size: 1.15rem;
-  cursor: pointer;
-  box-shadow: 0 6px 12px rgba(255, 170, 200, 0.3);
-  transition: .2s;
+/* 顶部音频控制（播放 / 静音） */
+#topAudioControls {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 99999;
 }
-
-.button-group button:hover {
-  background: #ffe3f0;
-  transform: scale(1.07);
-}
-
-canvas {
-  border-radius: 12px;
-  width: 100%;
-}
-
-@keyframes fadeIn {
-  from { opacity:0; transform: translateY(10px); }
-  to { opacity:1; transform: translateY(0); }
-}
-
-/* 新增：播放模式按钮样式 */
-.modeBtn {
-  width:45px;
-  height:45px;
-  border-radius:50%;
+#globalPlayBtn, #muteButton {
+  width:44px;
+  height:44px;
+  border-radius:10px;
   border:none;
-  background:#ffffffcc;
-  box-shadow:0 3px 8px rgba(0,0,0,0.15);
+  background: rgba(255,255,255,0.85);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.12);
   font-size:20px;
   cursor:pointer;
-  transition:0.25s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  transition:0.18s;
 }
-.modeBtn:hover {
-  transform:scale(1.08);
-  background:#ffe6f2;
-}
-.modeBtn.active {
-  background:#ff8fb7;
-  color:white;
-}
-</style>
-</head>
+#globalPlayBtn:hover, #muteButton:hover { transform: scale(1.06); background: rgba(255,255,255,0.95); }
 
-<body>
-
-<h1 class="title">🐱萧小五/兔子小姐🐰 の奇妙旅途 🎵</h1>
-
-<div class="button-group">
-  <button onclick="openPage('piano')">🎹 初诞礼赞</button>
-  <button class="next-btn" onclick="location.href='page2.html'">
-     💰 挥金之夜  
-    </button>
-  <button onclick="openPage('dream')">💭 思念絮语</button>
-</div>
-
-<div id="content"></div>
-
-<script>
-function openPage(page) {
-  const content = document.getElementById("content");
-  content.innerHTML = "";
-
-  if (page === "piano") {
-  content.innerHTML = `
-     <h2>🎶 初诞礼赞</h2>
-      <p>点开下方曲目即可预览钢琴曲。</p>
-
-      <div id="playerControls" style="display:flex; align-items:center; margin-top:20px; gap:15px;">
-        
-        <!-- 绿色开始播放按钮 -->
-        <button id="playAllBtn" style="
-          background:#1DB954;
-          border:none;
-          padding:10px 22px;
-          border-radius:30px;
-          color:white;
-          font-size:16px;
-          cursor:pointer;
-          box-shadow:0 4px 10px rgba(0,0,0,0.3);
-        ">▶ 开始播放</button>
-
-        <div style="display:flex; gap:10px;">
-          <button class="modeBtn" data-mode="repeat-one">🔁</button>
-          <button class="modeBtn" data-mode="repeat-all">🔂</button>
-          <button class="modeBtn" data-mode="shuffle">🔀</button>
-        </div>
-      </div>
-
-      <div id="musicList" style="margin-top:20px;"></div>
-      <audio id="musicPlayer"></audio>
-    `;
-  // === 你所有的曲目 ===
-  const musicData = [
-    {
-      name: "约定之初",
-      file: "audio1.mp3",      // 你的文件
-      img: "audio1cover.jpg"  // 你的图片
-    },
-    {
-      name: "彼时的天空",
-      file: "audio2.mp3",
-      img: "audio2cover.jpg"
-    },
-    {
-      name: "怪诞曲",
-      file: "audio3.mp3",
-      img: "audio3cover.jpg"
-    },
-     {
-      name: "日日夜夜",
-      file: "audio4.mp3",
-      img: "audio4cover.jpg"
-    },
-     {
-      name: "到明天去",
-      file: "audio5.mp3",
-      img: "audio5cover.jpg"
-    }
-  ];
-
-  const list = document.getElementById("musicList");
-  const player = document.getElementById("musicPlayer");
-
-  musicData.forEach((m, index) => {
-    const item = document.createElement("div");
-    item.className = "music-item";
-    item.style.cssText = `
-      display:flex;
-      align-items:center;
-      margin-bottom:15px;
-      padding:12px;
-      border-radius:14px;
-      background: rgba(255, 255, 255, 0.7);
-      box-shadow:0 3px 8px rgba(0,0,0,0.2);
-      cursor:pointer;
-      transition:0.25s;
-    `;
-
-    item.innerHTML = `
-      <img src="${m.img}" style="
-        width:90px; height:90px;
-        object-fit:cover;
-        border-radius:12px;
-        margin-right:15px;
-      ">
-
-      <div style="flex:1;">
-        <div style="font-size:17px; font-weight:600; color:#333;">
-          ${m.name}
-        </div>
-
-        <div class="progress-bar" id="bar${index}" style="
-          width:100%;
-          height:10px;
-          background:#eee;
-          border-radius:6px;
-          margin-top:10px;
-          overflow:hidden;
-        ">
-          <div id="fill${index}" style="
-            width:0%;
-            height:100%;
-            background:#ff8fb7;
-            transition:0.1s linear;
-          "></div>
-        </div>
-      </div>
-    `;
-
-    item.onclick = () => {
-      // 通过统一的 playIndex 处理播放与进度条更新
-      playIndex(index);
-    };
-
-    list.appendChild(item);
-  });
-  // ====== 插入下面的播放模式与控制逻辑 ======
-  let playMode = 'repeat-all'; // 'repeat-all' | 'repeat-one' | 'shuffle'
-  let currentIndex = -1;
-
-  const playAllBtnEl = document.getElementById('playAllBtn');
-  const modeBtnEls = Array.from(document.querySelectorAll('.modeBtn'));
-
-  // 简单样式高亮（如果需要，可把样式放入 <style>）
-  modeBtnEls.forEach(b => b.style.opacity = 0.6);
-  function updateModeUI(){
-    modeBtnEls.forEach(b => {
-      const active = b.dataset.mode === playMode;
-      b.style.opacity = active ? 1 : 0.6;
-      b.style.transform = active ? 'scale(1.08)' : 'scale(1)';
-      b.style.boxShadow = active ? '0 6px 14px rgba(255,140,180,0.25)' : 'none';
-      // 切换 class，配合上面的 CSS 控制背景/文字颜色
-      b.classList.toggle('active', active);
-    });
-  }
-  updateModeUI();
-
-  modeBtnEls.forEach(b => {
-    b.addEventListener('click', () => {
-      playMode = b.dataset.mode;
-      updateModeUI();
-    });
-  });
-
-  function playIndex(i){
-    if(i < 0 || i >= musicData.length) return;
-    currentIndex = i;
-    const m = musicData[i];
-    // 停背景音乐
-    const bgm = document.getElementById("bgm");
-    if (bgm && !bgm.paused) bgm.pause();
-    player.src = m.file;
-    player.play().catch(()=>{ /* play 被阻止时忽略 */ });
-    // 重置所有进度条（视觉同步）
-    document.querySelectorAll("[id^=fill]").forEach((f, idx) => {
-      f.style.width = idx === i ? (player.currentTime && player.duration ? (player.currentTime/player.duration*100)+'%' : '0%') : "0%";
-    });
-    // 统一的 timeupdate：只更新当前播放曲目的进度条
-    player.ontimeupdate = () => {
-      if (!player.duration || currentIndex < 0) return;
-      const pct = (player.currentTime / player.duration) * 100;
-      const el = document.getElementById('fill' + currentIndex);
-      if (el) el.style.width = pct + '%';
-    };
-  }
-
-  function playNext(){
-    if(musicData.length === 0) return;
-    if(playMode === 'repeat-one'){
-      playIndex(currentIndex);
-    } else if(playMode === 'shuffle'){
-      let next = Math.floor(Math.random() * musicData.length);
-      if(musicData.length > 1){
-        while(next === currentIndex) next = Math.floor(Math.random() * musicData.length);
-      }
-      playIndex(next);
-    } else { // repeat-all / 顺序播放（到末尾回到 0）
-      let next = (currentIndex + 1) % musicData.length;
-      playIndex(next);
-    }
-  }
-
-  // 当一首结束时自动切换
-  player.onended = () => playNext();
-
-  // 播放/继续按钮：若没在播放则从头开始，否则切下一首（可按需修改）
-  playAllBtnEl.addEventListener('click', () => {
-    if(currentIndex === -1) playIndex(0);
-    else playNext();
-  });
-
-  // 修改每个 item 的点击行为为调用 playIndex（确保使用上面逻辑）
-  document.querySelectorAll('.music-item').forEach((node, idx) => {
-    node.addEventListener('click', () => playIndex(idx));
-  });
-  // ====== 插入结束 ======
-  }
-
-  if (page === "dream") {
-    content.innerHTML = `
-      <h2>🌙 思念絮语</h2>
-      <p>星光点点，每一颗都是你的思念。</p>
-      <img src="dream-bg.jpg"
-           style="width:90%; border-radius:12px; margin-top:15px; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
-    `;
-  }
-
-  if (page === "game") startGame(content);
+/* 调整 playerControls 布局：绿色按钮居中，模式按钮横向并靠右 */
+#playerControls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-/* ======== 游戏放入内容卡片 ======== *//* ======== game insert======== */
-function startGame(container) {
-  container.innerHTML = `
-    <h2>💰 挥金之夜</h2>
-    <canvas id="gameCanvas" width="350" height="450"
-     style="border:2px solid #555; border-radius:12px; background:url('background.jpg'); background-size:cover;"></canvas>
-    <p>用 ← → 控制篮子接金币！</p>
-  `;
-
-  const canvas = document.getElementById("gameCanvas");
-  const ctx = canvas.getContext("2d");
-
-  const basket = {
-    x: 140,
-    y: 390,
-    width: 80,
-    height: 40,
-    img: new Image(),
-  };
-  basket.img.src = "basket.png";
-
-  const coin = {
-    x: Math.random() * 310,
-    y: 0,
-    size: 30,
-    img: new Image(),
-  };
-  coin.img.src = "coin.png";
-
-  let score = 0;
-  let rightPressed = false;
-  let leftPressed = false;
-
-  document.addEventListener("keydown", e => {
-    if (e.key === "ArrowRight") rightPressed = true;
-    if (e.key === "ArrowLeft") leftPressed = true;
-  });
-
-  document.addEventListener("keyup", e => {
-    if (e.key === "ArrowRight") rightPressed = false;
-    if (e.key === "ArrowLeft") leftPressed = false;
-  });
-
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(basket.img, basket.x, basket.y, basket.width, basket.height);
-    ctx.drawImage(coin.img, coin.x, coin.y, coin.size, coin.size);
-
-    ctx.fillStyle = "white";
-    ctx.font = "18px Arial";
-    ctx.fillText("分数: " + score, 10, 25);
-  }
-
-  function update() {
-    coin.y += 3;
-
-    if (coin.y + coin.size > basket.y &&
-        coin.x + coin.size > basket.x &&
-        coin.x < basket.x + basket.width) {
-      score++;
-      coin.y = 0;
-      coin.x = Math.random() * 310;
-    }
-
-    if (coin.y > canvas.height) {
-      coin.y = 0;
-      coin.x = Math.random() * 310;
-    }
-
-    if (rightPressed && basket.x < canvas.width - basket.width) basket.x += 5;
-    if (leftPressed && basket.x > 0) basket.x -= 5;
-
-    draw();
-    requestAnimationFrame(update);
-  }
-
-  update();
-
-
+/* 居中区域（放绿色按钮） */
+.player-controls-center {
+  flex: 1 1 0%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-</script>
-</body>
-</script>
-<!-- 背景音乐 --><!-- bg music -->
-<audio id="bgm" src="audio2.mp3" autoplay loop></audio>
+/* 模式按钮横向排列并靠右 */
+#modeRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto; /* 推到右侧（在 playerControls 内） */
+}
 
-<!-- 静音按钮 --><!-- mute bottom -->
-<div id="muteButton">🔊</div>
+/* 保持按钮高度一致 */
+.modeBtn { width:46px; height:46px; }
 
-<style>
+/* 静音按钮样式 */
 #muteButton {
   position: fixed;
   top: 15px;
@@ -416,31 +105,535 @@ function startGame(container) {
   box-shadow: 0 3px 6px rgba(0,0,0,0.15);
   transition: 0.2s;
 }
-#muteButton:hover {
-  transform: scale(1.1);
-  background: rgba(255,255,255,0.9);
+#muteButton:hover { transform: scale(1.1); background: rgba(255,255,255,0.9); }
+
+/* 附加：限制主内容宽度并允许其撑开页面高度 */
+#content {
+  width: 100%;
+  max-width: 900px;
+  box-sizing: border-box;
+}
+
+/* 新增：cover 框与内部圆形图片（仅内部圆旋转） */
+.cover-frame {
+  width: 90px;
+  height: 90px;
+  border-radius: 12px;
+  overflow: hidden;               /* 裁切成圆角方框，内部图片可超出并被遮盖 */
+  position: relative;
+  margin-right: 15px;
+  flex: 0 0 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255,255,255,0.6); /* 可自定义表框样式 */
+  box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+  background: #fff;
+}
+
+/* 内部圆形图片：放大一点以便做“圆形裁切”效果（只旋转图片本身） */
+.cover-circle {
+  width: 120%;
+  height: 120%;
+  object-fit: cover;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%; /* 保证看起来是圆 */
+  transition: transform 0.3s;
+}
+
+/* 旋转仅作用在内部的 .cover-circle */
+.cover-circle.rotating {
+  animation: spin 6s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+/* 复用已有 spin keyframes */
+@keyframes spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
 }
 </style>
+</head>
+<body class="home">
+
+<h1 class="title">🐱萧小五/兔子小姐🐰 の奇妙旅途 🎵</h1>
+
+<div class="button-group">
+  <button onclick="openPage('piano')">🎹 初诞礼赞</button>
+  <button class="next-btn" onclick="location.href='page2.html'">💰 挥金之夜</button>
+  <button onclick="openPage('dream')">💭 思念絮语</button>
+</div>
+
+<div id="content"></div>
+
+<!-- 背景音乐（只保留一个） -->
+<audio id="bgm" src="audio2.mp3" loop></audio>
+<!-- 把播放曲目的音频元素移到页面静态位置，避免切换页面时被移除 -->
+<audio id="musicPlayer"></audio>
+
+<!-- 顶部全局音频控制（播放/静音） -->
+<div id="topAudioControls">
+  <button id="globalPlayBtn">▶</button>
+  <button id="muteButton">🔊</button>
+</div>
 
 <script>
-// 自动播放（需要任意一次点击即可激活）// Auto play(need one tap）
-document.addEventListener("click", function () {
-  const bgm = document.getElementById("bgm");
-  if (bgm.paused) bgm.play();
-}, { once: true });
+/* 当前页面标识（用于重复点击返回首页） */
+let currentPage = null;
 
-const bgm = document.getElementById("bgm");
-const muteBtn = document.getElementById("muteButton");
+/* openPage 函数：根据参数填充 #content */
+function openPage(page) {
+  const content = document.getElementById("content");
 
-// 点击静音 / 取消静音// click to. mute / unmute
-muteBtn.addEventListener("click", () => {
-  if (bgm.muted) {
-    bgm.muted = false;
-    muteBtn.textContent = "🔊";   // 图标：声音开 // music on
+  // 如果重复点击当前已打开的页面，回到初始首页状态
+  if (currentPage === page) {
+    document.body.classList.add('home');
+    content.innerHTML = "";
+    currentPage = null;
+    return;
+  }
+
+  // 切换到任意页面时把首页居中状态移除，使标题向上并显示内容
+  document.body.classList.remove('home');
+  currentPage = page;
+
+  content.innerHTML = ""; // 清空
+
+  if (page === "piano") {
+    // 标记当前页面
+    // （openPage 开头已经设置 currentPage — 见后面修改）
+    content.innerHTML = `
+     <h2>🎶 初诞礼赞</h2>
+      <p>点开下方曲目即可预览钢琴曲。</p>
+
+      <div id="playerControls">
+        <div class="player-controls-center">
+          <button id="playAllBtn" style="
+            height:46px;
+            background:#1DB954;
+            border:none;
+            padding:10px 22px;
+            border-radius:30px;
+            color:white;
+            font-size:16px;
+            cursor:pointer;
+            box-shadow:0 4px 10px rgba(0,0,0,0.3);
+          ">▶ 开始播放</button>
+        </div>
+
+        <div id="modeRow">
+          <button class="modeBtn" data-mode="repeat-one">🔁</button>
+          <button class="modeBtn" data-mode="repeat-all">🔂</button>
+          <button class="modeBtn" data-mode="shuffle">🔀</button>
+        </div>
+      </div>
+
+      <div id="musicList" style="margin-top:20px;"></div>
+    `;
+
+    const musicData = [
+      { name: "约定之初", file: "audio1.mp3", img: "audio1cover.jpg" },
+      { name: "彼时的天空", file: "audio2.mp3", img: "audio2cover.jpg" },
+      { name: "怪诞曲", file: "audio3.mp3", img: "audio3cover.jpg" },
+      { name: "日日夜夜", file: "audio4.mp3", img: "audio4cover.jpg" },
+      { name: "到明天去", file: "audio5.mp3", img: "audio5cover.jpg" }, 
+      { name: "思念絮语bgm", file: "audio6.mp3", img: "audio6cover.jpg" }
+    ];
+
+    const list = document.getElementById("musicList");
+    const player = document.getElementById("musicPlayer");
+
+    // ------- moved/added: ensure currentIndex exists before any restore/bind -------
+    let playMode = 'repeat-all';
+    let currentIndex = -1;
+
+    musicData.forEach((m, index) => {
+      const item = document.createElement("div");
+      item.className = "music-item";
+      item.style.cssText = `
+        display:flex; align-items:center; margin-bottom:15px; padding:12px; border-radius:14px;
+        background: rgba(255, 255, 255, 0.7); box-shadow:0 3px 8px rgba(0,0,0,0.2); cursor:pointer; transition:0.25s;
+      `;
+      item.innerHTML = `
+        <div class="cover-frame">
+          <img id="cover${index}" class="cover-circle" src="${m.img}" style="border-radius:12px; margin-right:15px;">
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:17px; font-weight:600; color:#333;">${m.name}</div>
+          <div class="progress-bar" id="bar${index}" style="width:100%; height:10px; background:#eee; border-radius:6px; margin-top:10px; overflow:hidden;">
+            <div id="fill${index}" style="width:0%; height:100%; background:#ff8fb7; transition:0.1s linear;"></div>
+          </div>
+        </div>
+      `;
+      item.onclick = () => playIndex(index);
+      list.appendChild(item);
+    });
+
+    // persistent element reference (only once)
+    const musicPlayerEl = document.getElementById('musicPlayer');
+
+    // 如果播放器当前已经在播放或有 src，找到对应项并恢复 rotating / progress
+    function restorePlaybackUIFromPlayer() {
+      // 清除旧的 rotating 状态
+      document.querySelectorAll('.cover-circle').forEach(img => img.classList.remove('rotating'));
+
+      // 计算当前正在播放的文件名（只比较尾部以避免绝对 URL 问题）
+      let currentFile = "";
+      try {
+        if (musicPlayerEl && musicPlayerEl.src) {
+          const src = musicPlayerEl.src;
+          // 兼容不同环境：只取最后一段（含 query/hash）
+          currentFile = src.substring(src.lastIndexOf('/') + 1);
+        }
+      } catch (e) { currentFile = ""; }
+
+      // 更稳健的匹配：如果文件名尾部包含 musicData.file 即视为匹配
+      const playingIndex = musicData.findIndex(m => currentFile && currentFile.indexOf(m.file) !== -1);
+      if (playingIndex !== -1) {
+        currentIndex = playingIndex;
+        const img = document.getElementById('cover' + playingIndex);
+        if (img) img.classList.add('rotating');
+        const fillEl = document.getElementById('fill' + playingIndex);
+        if (fillEl && musicPlayerEl.duration) {
+          const pct = (musicPlayerEl.currentTime / musicPlayerEl.duration) * 100 || 0;
+          fillEl.style.width = pct + '%';
+        }
+      } else {
+        currentIndex = -1;
+      }
+    }
+
+    // 绑定/恢复播放器事件（每次重建 piano 内容都要绑一次）
+    function bindMusicPlayerEvents() {
+      if (!musicPlayerEl) return;
+      musicPlayerEl.onended = () => playNext();
+      musicPlayerEl.ontimeupdate = () => {
+        if (!musicPlayerEl.duration || currentIndex < 0) return;
+        const pct = (musicPlayerEl.currentTime / musicPlayerEl.duration) * 100;
+        const el = document.getElementById('fill' + currentIndex);
+        if (el) el.style.width = pct + '%';
+      };
+      musicPlayerEl.addEventListener('play', () => {
+        if (currentIndex >= 0) {
+          const img = document.getElementById('cover' + currentIndex);
+          if (img) img.classList.add('rotating');
+        }
+      });
+      // 保持旋转状态在 pause 时不被移除（按需可取消）
+    }
+
+    // 执行恢复与绑定（现在 currentIndex 已声明，restore 不会抛错）
+    bindMusicPlayerEvents();
+    restorePlaybackUIFromPlayer();
+    // --- 结束修改 ---
+    // (已在上方声明 playMode / currentIndex，移除重复声明)
+    
+    const playAllBtnEl = document.getElementById('playAllBtn');
+    const modeBtnEls = Array.from(document.querySelectorAll('.modeBtn'));
+    modeBtnEls.forEach(b => b.style.opacity = 0.6);
+    function updateModeUI(){
+      modeBtnEls.forEach(b => {
+        const active = b.dataset.mode === playMode;
+        b.style.opacity = active ? 1 : 0.6;
+        b.style.transform = active ? 'scale(1.08)' : 'scale(1)';
+        b.style.boxShadow = active ? '0 6px 14px rgba(255,140,180,0.25)' : 'none';
+        b.classList.toggle('active', active);
+      });
+    }
+    updateModeUI();
+    modeBtnEls.forEach(b => b.addEventListener('click', ()=>{ playMode = b.dataset.mode; updateModeUI(); }));
+
+    // 当用户在 piano 页面点击开始播放时，同时更新 top 全局播放按钮为暂停状态
+    function setGlobalPlayState(isPlaying) {
+      const gp = document.getElementById('globalPlayBtn');
+      if (!gp) return;
+      gp.textContent = isPlaying ? '⏸' : '▶';
+    }
+
+    function playIndex(i){
+      if(i < 0 || i >= musicData.length) return;
+      currentIndex = i;
+      const m = musicData[i];
+      const bgm = document.getElementById("bgm");
+      if (bgm && !bgm.paused) bgm.pause();
+      player.src = m.file;
+      player.play().catch(()=>{});
+      // 更新全局播放按钮 — 当前有音乐在播放
+      setGlobalPlayState(true);
+
+      // 切换：只有当前播放项内部的 .cover-circle 带 rotating（若使用了 cover-frame 实现）
+      document.querySelectorAll('.music-cover, .cover-circle').forEach((img, idx) => {
+        img.classList.toggle('rotating', idx === i);
+      });
+      document.querySelectorAll("[id^=fill]").forEach((f, idx) => {
+        f.style.width = idx === i ? (player.currentTime && player.duration ? (player.currentTime/player.duration*100)+'%' : '0%') : "0%";
+      });
+      player.ontimeupdate = () => {
+        if (!player.duration || currentIndex < 0) return;
+        const pct = (player.currentTime / player.duration) * 100;
+        const el = document.getElementById('fill' + currentIndex);
+        if (el) el.style.width = pct + '%';
+      };
+    }
+
+    function playNext(){
+      if(musicData.length === 0) return;
+      if(playMode === 'repeat-one'){ playIndex(currentIndex); }
+      else if(playMode === 'shuffle'){
+        let next = Math.floor(Math.random() * musicData.length);
+        if(musicData.length > 1){ while(next === currentIndex) next = Math.floor(Math.random() * musicData.length); }
+        playIndex(next);
+      } else {
+        let next = (currentIndex + 1) % musicData.length;
+        playIndex(next);
+      }
+    }
+
+    // 已在上方取得 musicPlayerEl，避免重复声明
+    if (typeof musicPlayerEl !== 'undefined' && musicPlayerEl) musicPlayerEl.onended = () => playNext();
+    playAllBtnEl.addEventListener('click', () => { if(currentIndex === -1) playIndex(0); else playNext(); });
+    document.querySelectorAll('.music-item').forEach((node, idx) => node.addEventListener('click', () => playIndex(idx)));
+  }
+
+  if (page === "dream") {
+    content.innerHTML = `
+      <h2 class="dream-title">🌙 思念絮语</h2>
+
+      <!-- 章节 1 -->
+      <div class="dream-item">
+        <div class="dream-header">
+          <span class="dream-chapter">黑猫</span>
+          <button class="dream-detail-btn" onclick="toggleDream(0)">详情</button>
+        </div>
+        <div class="dream-content" id="dreamContent0">
+          <p class="dream-text">　　-我深信这邪念是来自人本能的冲动——一种细微的原始功能...
+
+ -或许从此以后，我就只能荀延残喘了——难道我的命运竟然
+
+ -正因为我深知它曾深爱我、正因为我知晓我无法改变自己的恶念
+
+ -可是，神似乎终于想起要解救满身罪恶、被恶魔牵绊的我了…</p>
+        </div>
+      </div>
+
+      <!-- 章节 2 -->
+      <div class="dream-item">
+        <div class="dream-header">
+          <span class="dream-chapter">普罗米修斯</span>
+          <button class="dream-detail-btn" onclick="toggleDream(1)">详情</button>
+        </div>
+        <div class="dream-content" id="dreamContent1">
+          <p class="dream-text">　　-在苦难之外，旁观他人的苦痛，却偏偏又要対深陷其中的受苦者.....
+
+-啊，看呐，朋友，你的恩德是如何沒有回应！告诉我，谁会来保护你…
+
+-那么，你就崇拜吧，致敬吧，永远奉承那懦弱残暴的当权者…..
+
+-就这样，让那电火冲击我吧，让那天穹在雷霆和风暴中颤抖…</p>
+        </div>
+      </div>
+
+      <!-- 章节 3 -->
+      <div class="dream-item">
+        <div class="dream-header">
+          <span class="dream-chapter">老人与海</span>
+          <button class="dream-detail-btn" onclick="toggleDream(2)">详情</button>
+        </div>
+        <div class="dream-content" id="dreamContent2">
+          <p class="dream-text">　　-他可以看见海水深处七色的虹光，可以看见钓索和那海面上奇妙的波动……
+
+-好运这玩意儿，往往在各种时刻、以不同形式出现，谁说得准啊……
+
+-光景太好了，因此不能够持久。但愿我根本没有钓上这条鱼……
+
+-但是你毫不犹豫地杀死了那条登多索鲨。即使它跟你一样，靠吃活鱼维生……</p>
+        </div>
+      </div>
+
+      <!-- 章节 4 -->
+      <div class="dream-item">
+        <div class="dream-header">
+          <span class="dream-chapter">深夜列车</span>
+          <button class="dream-detail-btn" onclick="toggleDream(3)">详情</button>
+        </div>
+        <div class="dream-content" id="dreamContent3">
+          <p class="dream-text">　　这里写《深夜列车》的内容……</p>
+        </div>
+      </div>
+
+      <!-- 章节 5 -->
+      <div class="dream-item">
+        <div class="dream-header">
+          <span class="dream-chapter">未寄出的信</span>
+          <button class="dream-detail-btn" onclick="toggleDream(4)">详情</button>
+        </div>
+        <div class="dream-content" id="dreamContent4">
+          <p class="dream-text">　　这里写《未寄出的信》的内容……</p>
+        </div>
+      </div>
+    `;
+
+    const style = document.createElement("style");
+    style.textContent = `
+      .dream-container {
+        width: 90%;
+        margin: 0 auto;
+        text-align: left;
+      }
+      .dream-title {
+        color: #444;
+        margin-bottom: 25px;
+        font-size: 26px;
+      }
+      .dream-item {
+        background: rgba(255,255,255,0.75);
+        padding: 12px 18px;
+        border-radius: 12px;
+        margin-bottom: 14px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+      }
+      .dream-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .dream-chapter {
+        font-size: 20px;
+        font-weight: bold;
+      }
+      .dream-detail-btn {
+        border: none;
+        background: #ffe6f2;
+        padding: 5px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: 0.2s;
+      }
+      .dream-detail-btn:hover {
+        background: #ffb7d6;
+      }
+      .dream-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height .35s ease;
+        margin-top: 5px;
+      }
+      .dream-text {
+        white-space: pre-wrap;
+        line-height: 1.6;
+        font-size: 16px;
+        color: #444;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  if (page === "game") {
+    startGame(content);
+  }
+}
+
+/* toggleDream 函数：展开/收起章节内容 */
+function toggleDream(i) {
+  const content = document.getElementById("dreamContent" + i);
+
+  if (!content) return;
+
+  if (content.style.maxHeight && content.style.maxHeight !== "0px") {
+    content.style.maxHeight = "0px";
   } else {
-    bgm.muted = true;
-    muteBtn.textContent = "🔇";   // 图标：静音 // mute
+    content.style.maxHeight = content.scrollHeight + "px";
+  }
+}
+
+/* 游戏逻辑（与原始版本相同） */
+function startGame(container) {
+  container.innerHTML = `
+    <h2>💰 挥金之夜</h2>
+    <canvas id="gameCanvas" width="350" height="450" style="border:2px solid #555; border-radius:12px; background:url('background.jpg'); background-size:cover;"></canvas>
+    <p>用 ← → 控制篮子接金币！</p>
+  `;
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+  const basket = { x: 140, y: 390, width: 80, height: 40, img: new Image() };
+  basket.img.src = "basket.png";
+  const coin = { x: Math.random() * 310, y: 0, size: 30, img: new Image() };
+  coin.img.src = "coin.png";
+  let score = 0, rightPressed = false, leftPressed = false;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") rightPressed = true; if (e.key === "ArrowLeft") leftPressed = true; });
+  document.addEventListener("keyup", e => { if (e.key === "ArrowRight") rightPressed = false; if (e.key === "ArrowLeft") leftPressed = false; });
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(basket.img, basket.x, basket.y, basket.width, basket.height);
+    ctx.drawImage(coin.img, coin.x, coin.y, coin.size, coin.size);
+    ctx.fillStyle = "white"; ctx.font = "18px Arial"; ctx.fillText("分数: " + score, 10, 25);
+  }
+  function update() {
+    coin.y += 3;
+    if (coin.y + coin.size > basket.y && coin.x + coin.size > basket.x && coin.x < basket.x + basket.width) {
+      score++; coin.y = 0; coin.x = Math.random() * 310;
+    }
+    if (coin.y > canvas.height) { coin.y = 0; coin.x = Math.random() * 310; }
+    if (rightPressed && basket.x < canvas.width - basket.width) basket.x += 5;
+    if (leftPressed && basket.x > 0) basket.x -= 5;
+    draw();
+    requestAnimationFrame(update);
+  }
+  update();
+}
+
+/* 顶部全局播放/静音 控制：统一管理 bgm 和 musicPlayer */
+const globalPlayBtn = document.getElementById('globalPlayBtn');
+const muteBtn = document.getElementById('muteButton');
+const bgmEl = document.getElementById('bgm');
+const musicEl = document.getElementById('musicPlayer');
+
+function anyAudioPlaying() {
+  return (musicEl && musicEl.src && !musicEl.paused) || (bgmEl && !bgmEl.paused);
+}
+
+globalPlayBtn.addEventListener('click', () => {
+  // 如果任意音频在播放 -> 暂停全部；否则优先尝试恢复 musicPlayer（若有 src），否则播放 bgm
+  if (anyAudioPlaying()) {
+    if (musicEl && !musicEl.paused) { musicEl.pause(); }
+    if (bgmEl && !bgmEl.paused) { bgmEl.pause(); }
+    globalPlayBtn.textContent = '▶';
+  } else {
+    if (musicEl && musicEl.src) {
+      musicEl.play().catch(()=>{});
+    } else if (bgmEl) {
+      bgmEl.play().catch(()=>{});
+    }
+    globalPlayBtn.textContent = '⏸';
   }
 });
+
+/* 静音同时作用于全部音频 */
+muteBtn.addEventListener('click', () => {
+  if (!bgmEl && !musicEl) return;
+  const muted = !( (bgmEl && bgmEl.muted) || (musicEl && musicEl.muted) );
+  if (bgmEl) bgmEl.muted = muted;
+  if (musicEl) musicEl.muted = muted;
+  muteBtn.textContent = muted ? '🔈' : '🔊';
+});
+
+/* 当任意播放器播放/暂停时，同步更新全局播放按钮状态 */
+if (musicEl) {
+  musicEl.addEventListener('play', ()=> globalPlayBtn.textContent = '⏸');
+  musicEl.addEventListener('pause', ()=> { if (!anyAudioPlaying()) globalPlayBtn.textContent = '▶'; });
+}
+if (bgmEl) {
+  bgmEl.addEventListener('play', ()=> globalPlayBtn.textContent = '⏸');
+  bgmEl.addEventListener('pause', ()=> { if (!anyAudioPlaying()) globalPlayBtn.textContent = '▶'; });
+}
+
+/* 保持原有自动播放激活逻辑：首次点击页面激活背景音乐（不影响 globalPlayBtn 已存在逻辑） */
+document.addEventListener("click", function () {
+  if (bgmEl && bgmEl.paused) bgmEl.play().catch(()=>{});
+}, { once: true });
 </script>
+</body>
 </html>
