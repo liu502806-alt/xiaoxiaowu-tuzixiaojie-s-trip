@@ -131,16 +131,18 @@ canvas { border-radius: 12px; width: 100%; }
   background: #fff;
 }
 
-/* 内部圆形图片：放大一点以便做“圆形裁切”效果（只旋转图片本身） */
+/* 内部圆形图片：限制为不超过框边长且只旋转图片本身 */
 .cover-circle {
-  width: 120%;
-  height: 120%;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: cover;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%; /* 保证看起来是圆 */
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  border-radius: 50%; /* 圆形，直径不超过外框 */
   transition: transform 0.3s;
 }
 
@@ -152,9 +154,30 @@ canvas { border-radius: 12px; width: 100%; }
 
 /* 复用已有 spin keyframes */
 @keyframes spin {
-  from { transform: translate(-50%, -50%) rotate(0deg); }
-  to   { transform: translate(-50%, -50%) rotate(360deg); }
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
+/* Dream 详细展开样式 */
+.dream-line{ display:flex; align-items:flex-start; gap:12px; padding:8px 6px; border-bottom:1px dashed rgba(0,0,0,0.04); }
+.dream-short{ flex:1; color:#444; white-space:pre-wrap; }
+.detail-toggle{ background:#ffe6f2; border:none; padding:6px 10px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.dream-detail{ width:100%; display:none; margin-top:8px; background:rgba(255,255,255,0.96); padding:12px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.06); overflow:auto }
+.detail-left{ width:70%; float:left; }
+.detail-text{ min-height:80px; border:1px dashed #eee; padding:10px; border-radius:8px; background:#fff; color:#333; }
+.detail-controls{ margin-top:8px; display:flex; gap:8px; align-items:center }
+.detail-play{ background:#1DB954; color:#fff; border:none; padding:6px 10px; border-radius:8px; cursor:pointer }
+.detail-right{ width:28%; float:right; display:flex; align-items:flex-start; justify-content:center }
+.lang-box{ width:100%; border-left:1px solid rgba(0,0,0,0.04); padding-left:10px; color:#333 }
+.dot{ width:10px; height:10px; border-radius:50%; background:#ddd; display:inline-block; margin:0 6px; }
+.dream-line + .dream-detail{ margin-left:0 }
+
+/* detail button label/icon parts */
+.detail-label{ font-size:14px; color:#333; }
+.detail-icon{ font-size:14px; color:#333; }
+.dream-detail-btn{ display:flex; align-items:center; gap:6px; }
+/* per-line wechat voice play button (green) */
+.wv-play{ background:#1DB954; color:#fff; border:none; padding:6px 10px; border-radius:8px; cursor:pointer; font-weight:600; }
+.wv-play:hover{ transform:translateY(-1px); }
 </style>
 </head>
 <body class="home">
@@ -225,8 +248,8 @@ function openPage(page) {
         </div>
 
         <div id="modeRow">
-          <button class="modeBtn" data-mode="repeat-one">🔁</button>
-          <button class="modeBtn" data-mode="repeat-all">🔂</button>
+          <button class="modeBtn" data-mode="repeat-one">🔂</button>
+          <button class="modeBtn" data-mode="repeat-all">🔁</button>
           <button class="modeBtn" data-mode="shuffle">🔀</button>
         </div>
       </div>
@@ -259,7 +282,7 @@ function openPage(page) {
       `;
       item.innerHTML = `
         <div class="cover-frame">
-          <img id="cover${index}" class="cover-circle" src="${m.img}" style="border-radius:12px; margin-right:15px;">
+          <img id="cover${index}" class="cover-circle" src="${m.img}">
         </div>
         <div style="flex:1;">
           <div style="font-size:17px; font-weight:600; color:#333;">${m.name}</div>
@@ -406,7 +429,8 @@ function openPage(page) {
       <div class="dream-item">
         <div class="dream-header">
           <span class="dream-chapter">黑猫</span>
-          <button class="dream-detail-btn" onclick="toggleDream(0)">详情</button>
+          <!-- header: icon first, then label (▾) -->
+          <button class="dream-detail-btn" onclick="toggleDream(0)"><span class="detail-icon">▾</span><span class="detail-label"></span></button>
         </div>
         <div class="dream-content" id="dreamContent0">
           <p class="dream-text">　　-我深信这邪念是来自人本能的冲动——一种细微的原始功能...
@@ -423,7 +447,8 @@ function openPage(page) {
       <div class="dream-item">
         <div class="dream-header">
           <span class="dream-chapter">普罗米修斯</span>
-          <button class="dream-detail-btn" onclick="toggleDream(1)">详情</button>
+          <!-- header: icon first, then label (▾) -->
+          <button class="dream-detail-btn" onclick="toggleDream(1)"><span class="detail-icon">▾</span><span class="detail-label"></span></button>
         </div>
         <div class="dream-content" id="dreamContent1">
           <p class="dream-text">　　-在苦难之外，旁观他人的苦痛，却偏偏又要対深陷其中的受苦者.....
@@ -440,7 +465,8 @@ function openPage(page) {
       <div class="dream-item">
         <div class="dream-header">
           <span class="dream-chapter">老人与海</span>
-          <button class="dream-detail-btn" onclick="toggleDream(2)">详情</button>
+          <!-- header: icon first, then label (▾) -->
+          <button class="dream-detail-btn" onclick="toggleDream(2)"><span class="detail-icon">▾</span><span class="detail-label"></span></button>
         </div>
         <div class="dream-content" id="dreamContent2">
           <p class="dream-text">　　-他可以看见海水深处七色的虹光，可以看见钓索和那海面上奇妙的波动……
@@ -450,28 +476,6 @@ function openPage(page) {
 -光景太好了，因此不能够持久。但愿我根本没有钓上这条鱼……
 
 -但是你毫不犹豫地杀死了那条登多索鲨。即使它跟你一样，靠吃活鱼维生……</p>
-        </div>
-      </div>
-
-      <!-- 章节 4 -->
-      <div class="dream-item">
-        <div class="dream-header">
-          <span class="dream-chapter">深夜列车</span>
-          <button class="dream-detail-btn" onclick="toggleDream(3)">详情</button>
-        </div>
-        <div class="dream-content" id="dreamContent3">
-          <p class="dream-text">　　这里写《深夜列车》的内容……</p>
-        </div>
-      </div>
-
-      <!-- 章节 5 -->
-      <div class="dream-item">
-        <div class="dream-header">
-          <span class="dream-chapter">未寄出的信</span>
-          <button class="dream-detail-btn" onclick="toggleDream(4)">详情</button>
-        </div>
-        <div class="dream-content" id="dreamContent4">
-          <p class="dream-text">　　这里写《未寄出的信》的内容……</p>
         </div>
       </div>
     `;
@@ -529,6 +533,277 @@ function openPage(page) {
       }
     `;
     document.head.appendChild(style);
+
+    // Transform each .dream-text into per-line items where each line has an expand symbol
+    // and clicking any line's expand opens a chapter-level article (original short text stays unchanged)
+    (function enrichDreamText(){
+      const dreamTextEls = content.querySelectorAll('.dream-text');
+      dreamTextEls.forEach((el, chapterIdx) => {
+        const raw = el.textContent || '';
+        const lines = raw.split(/\n+/).map(s => s.replace(/^[-　\s]*/,'').trim()).filter(Boolean);
+
+        // wrapper for lines
+        const wrapper = document.createElement('div');
+        wrapper.className = 'dream-lines-wrapper';
+
+        // create a single chapter-level article panel (hidden initially)
+        const chapterArticle = document.createElement('div');
+        chapterArticle.className = 'chapter-article';
+        // data-audio 可用于直接指定本章节的语音文件路径，例如：chapterArticle.dataset.audio = 'audio/chapter0.mp3'
+        chapterArticle.style.display = 'none';
+        chapterArticle.innerHTML = `
+          <div class="article-left">
+            <div class="article-content" contenteditable="true">在这里填写章节文章内容（可直接粘贴/编辑）。</div>
+            <div class="article-hint" style="font-size:13px;color:#666;margin-top:8px;"></div>
+          </div>
+          <div class="article-right">
+            <div class="wechat-voice">
+              <div class="wv-bubble">点击播放语音</div>
+              <button class="wv-play">▶</button>
+              <!-- 音频：可把 src 写在这里，或在 chapterArticle 元素上设置 data-audio 属性 -->
+              <audio class="wv-audio" preload="none"></audio>
+            </div>
+          </div>`;
+
+        // per-line items: short text + expand symbol button
+        // per-line article data (line-specific). 例如：为 黑猫(章节0) 的第 0 行设定文章和音频
+        const perLineData = {};
+        if (chapterIdx === 0) {
+          // 黑猫第一行的展开文章和音频（用户提供内容）
+          perLineData[0] = {
+            text: `我深信这邪念是来自人本能的冲动
+—一种细微的原始功能，它和人的本性密不可分。谁不曾在明知不可为的情况下，仍旧犯下恶行？谁不是即便拥有人类最引以为傲的理智，却仍因知法燃起犯法的渴望？正是这份渴望一一渴望颠覆本性、为作恶而作恶——终于断送了我的一生。`,
+            audio: 'hm1.mp3'
+          };
+          // 黑猫第二行（lineIdx = 1）文章与音频（用户提供）
+          perLineData[1] = {
+            text: `或许从此以后，我就只能苟延残嘴了
+一一难道我的命运竟然就这样被一只动物掌控、折磨？要知道，我是上帝按自己形象创造出来的崇高的“人”啊！总之，如今我对它实在毫无办法，也因此只能在永无安宁的黑夜与白天中苟活。`,
+            audio: 'hm2.mp3'
+          };
+          // 黑猫第三行（lineIdx = 2）文章与音频（用户提供）
+          perLineData[2] = {
+            text: `正因为我深知它曾深爱我、正因为我知晓我无法改变自己的恶念，于是我吊死了它一一这是致命的、真实的罪恶，足以让我的灵魂永堕炼狱。即便是最怜爱世人的神明，也绝不会再宽恕我`,
+            audio: 'hm3.mp3'
+          };
+
+          perLineData[3] = {
+            text: `可是，神似乎终于想起要解救满身罪恶、被恶魔牵绊的我了一一敲墙的回响之后，墙中传来了一阵哭叫。起初，声音模糊而断续，像是孩童的抽泣，但很快，那声音变成了持续不断的凄厉啸叫.….伴着惊恐与得意，只有地狱中受刑者的悲鸣和魔鬼的欢呼才能混合出这样的声音！`,
+            audio: 'hm4.mp3'
+          };
+        } // <- 修复：关闭 chapterIdx === 0 的块
+
+        if (chapterIdx === 1) {
+          perLineData[0] = {
+            text: `站在苦难之外，旁观他人的苦痛，却偏偏又要对深陷其中的受苦者施加他们的规诫和劝告，这实在是件既容易做到，又能给自己带来莫大满足感的事情。我有罪，我完全知道；我是自愿地、自觉地犯罪的，在这一点上，我不愿同你争辩。`,
+            audio: 'plmxs1.mp3'
+          };
+     
+          perLineData[1] = {
+            text: `啊，看呐，朋友，你的恩德是如何没有回应！告诉我，谁会来保护你？朝生暮死的凡人怎么可能救得了你？难道你看不出他们是那样软弱，有如虚渺的梦幻泡影，将那昏盲的庸碌众生在其中禁锢？——凡人的力量永远不可能破坏宙斯的秩序。`,
+            audio: 'plmxs2.mp3'
+          };
+          
+          perLineData[2] = {
+            text: `那么，你就崇拜吧，致敬吧，永远奉承那懦弱残暴的当权者，向他卑微地祈祷吧！在我的眼里，宙斯根本不值一提。就让他随心所欲，如愿地统治这稍纵即逝的时期；因为我知道，他在众神中为王的日子并不能长久。`,
+            audio: 'plmxs3.mp3'
+          };
+
+          perLineData[3] = {
+            text: `就这样，让那电火冲击我吧，让那天穹在雷霆和风暴中震颤，让飓风动摇这大地的根基，让海上狂澜澎湃，直冲星辰循行的轨迹。
+宙斯定下的必然劫数会凭借猛烈的狂飙将我的躯体卷起，投入幽暗的塔尔塔罗斯—可尽管如此，他仍不能让我死去。.….伴着惊恐与得意，只有地狱中受刑者的悲鸣和魔鬼的欢呼才能混合出这样的声音！`,
+            audio: 'plmxs4.mp3'
+          };
+        }
+        if (chapterIdx === 2) {
+          perLineData[0] = {
+            text: `他可以看见海水深处七色的虹光，可以看见钓索和那海面上奇妙的波动。由于信风的吹刮，云块正渐渐积聚，他望见一群野禽飞掠水面，在天空下，它们的身影被刻画得清楚，然后模糊，最后又显现——于是他明白，一个人在海上是永远不会孤单的。`,
+            audio: 'lryh1.mp3'
+          };
+     
+          perLineData[1] = {
+            text: `好运这玩意儿，往往在各种时刻、以不同形式出现，谁说得准啊？可是，不管何时何样的好运，都给我一点儿吧，我可以付出它需要的所有代价，只求看到灯火的反光.•我的期待太多了，眼下只期待这一个。他竭力坐得舒服些掌舵，他感到疼痛，因此知道自己没有死。`,
+            audio: 'lryh2.mp3'
+          };
+          
+          perLineData[2] = {
+            text: `光景太好了，因此不能够持久。但愿我根本没有钓上这条鱼，这一切只是一场梦，只是我独自躺在那满铺了旧报纸的床上休憩时的怀想。
+“然而！—然而人绝不是为失败而生的，”他说，“一个人可以被毁灭，但不能被打败。"`,
+            audio: 'lryh3.mp3'
+          };
+
+          perLineData[3] = {
+            text: `但是你毫不犹豫地杀死了那条登多索鲨。即使它跟你一样，靠吃活鱼维生。即使它不是食腐动物，也不像有些鲨鱼那样愚钝低劣一一即使它是美丽、崇高而无畏的。
+“我是为了自卫，“老人说出声来，“而且下手很利索。”再说，每样东西都杀死别的东西，只是方式不同罢了。`,
+            audio: 'lryh4.mp3'
+          };
+        }
+        // 每行独立的 article 模板（注释里标明文章和音频放置位置）
+        const articleHTML = `
+          <!-- ARTICLE: 文章放在 .article-content（可编辑），音频放在下方 audio 的 src 或设置在本元素的 data-audio 属性 -->
+          <div class="article-left">
+            <div class="article-content" contenteditable="true">在这里填写章节文章内容（可直接粘贴/编辑）。</div>
+            <div class="article-hint" style="font-size:13px;color:#666;margin-top:8px;"></div>
+          </div>
+          <div class="article-right">
+            <div class="wechat-voice">
+              <div class="wv-bubble">点击播放语音</div>
+              <button class="wv-play">▶</button>
+              <!-- 音频元素（每行独立）：将 src 指向你放置的音频文件，例如 hm1.mp3 -->
+              <audio class="wv-audio" preload="none"></audio>
+            </div>
+          </div>`;
+
+        lines.forEach((line, lineIdx) => {
+          const lineWrap = document.createElement('div');
+          lineWrap.className = 'dream-line';
+
+          const short = document.createElement('div');
+          short.className = 'dream-short';
+          short.textContent = line;
+
+          const btn = document.createElement('button');
+          btn.className = 'detail-toggle';
+          // per-line: label first, then icon ("详情 ▾") — swapped order vs header
+          btn.innerHTML = '<span class="detail-label">详情</span><span class="detail-icon">▾</span>';
+
+          // create an independent article panel for this line so multiple lines can be open
+          const articleEl = document.createElement('div');
+          articleEl.className = 'chapter-article';
+          articleEl.style.display = 'none';
+          articleEl.innerHTML = articleHTML;
+
+          // toggle per-line article when clicking the button
+          btn.addEventListener('click', ()=>{
+            const showing = articleEl.style.display === 'block';
+            const chapterContentEl = wrapper.parentNode; // this is the .dream-content element
+            const bgm = document.getElementById('bgm');
+            if (showing) {
+              // hide this article only
+              articleEl.style.display = 'none';
+              const ic = btn.querySelector('.detail-icon'); if(ic) ic.textContent = '▾';
+              // stop this article's audio if playing and restore bgm if this audio ducked it
+              try {
+                const a = articleEl.querySelector('.wv-audio');
+                const pb = articleEl.querySelector('.wv-play');
+                if (a && !a.paused) {
+                  a.pause();
+                  if (pb) pb.textContent = '▶';
+                  try {
+                    const otherMusic = document.getElementById('musicPlayer');
+                    if (a.dataset.ducked && bgm && typeof bgm.dataset.prevVolume !== 'undefined') { bgm.volume = parseFloat(bgm.dataset.prevVolume); delete bgm.dataset.prevVolume; }
+                    if (a.dataset.ducked && otherMusic && typeof otherMusic.dataset.prevVolume !== 'undefined') { otherMusic.volume = parseFloat(otherMusic.dataset.prevVolume); delete otherMusic.dataset.prevVolume; }
+                  } catch(e){}
+                  a.dataset.ducked = '';
+                }
+              } catch(e){}
+              // if no other articles open, collapse chapter content
+              try {
+                const anyOpen = Array.from(wrapper.querySelectorAll('.chapter-article')).some(a=>a.style.display === 'block');
+                if (!anyOpen) chapterContentEl.style.maxHeight = '0px';
+              } catch(e){}
+            } else {
+              // populate article content & audio if preset
+              try {
+                const data = perLineData[lineIdx];
+                const ac = articleEl.querySelector('.article-content');
+                const aEl = articleEl.querySelector('.wv-audio');
+                const pb = articleEl.querySelector('.wv-play');
+                if (data && data.text) ac.textContent = data.text; else ac.textContent = '在这里填写章节文章内容（可直接粘贴/编辑）。';
+                if (data && data.audio) { articleEl.dataset.audio = data.audio; aEl.src = data.audio; if(pb) pb.textContent = '▶'; }
+                else { articleEl.removeAttribute('data-audio'); aEl.removeAttribute('src'); if(pb) pb.textContent = '▶'; }
+              } catch (e) {}
+              // show this article (it is already in the DOM under the line)
+              articleEl.style.display = 'block';
+              const ic = btn.querySelector('.detail-icon'); if(ic) ic.textContent = '▴';
+              // ensure chapter content expands to fit
+              try { chapterContentEl.style.maxHeight = chapterContentEl.scrollHeight + 'px'; } catch(e){}
+            }
+
+            // update header icon: if any article in this chapter is open, set header to open
+            try {
+              const item = wrapper.parentNode.closest('.dream-item');
+              if (item) {
+                const anyOpen = Array.from(wrapper.querySelectorAll('.chapter-article')).some(a=>a.style.display === 'block');
+                const headerIcon = item.querySelector('.dream-detail-btn .detail-icon');
+                if (headerIcon) headerIcon.textContent = anyOpen ? '▴' : '▾';
+              }
+            } catch(e){}
+          });
+
+          lineWrap.appendChild(short);
+          lineWrap.appendChild(btn);
+          wrapper.appendChild(lineWrap);
+          // insert per-line article element (hidden by default)
+          wrapper.appendChild(articleEl);
+
+          // wire up play button for this articleEl (per-line)
+          (function bindPerLineAudio(aEl){
+            const playBtnLocal = aEl.querySelector('.wv-play');
+            const audioElLocal = aEl.querySelector('.wv-audio');
+            // if data-audio preset exists on the element, apply it
+            const dasrcLocal = aEl.getAttribute('data-audio');
+            if (dasrcLocal && dasrcLocal.trim()) audioElLocal.src = dasrcLocal;
+            playBtnLocal && playBtnLocal.addEventListener('click', ()=>{
+              const bgm = document.getElementById('bgm');
+              if (!audioElLocal.src) { alert('请为本行设置音频：在对应的行元素设置 data-audio="path/to/file.mp3" 或把 src 写入 <audio>。'); return; }
+              if (audioElLocal.paused) {
+                // stop any other playing per-line audios and restore their ducked bgm/music if needed
+                document.querySelectorAll('.wv-audio').forEach(o => {
+                  try {
+                    if (o !== audioElLocal && !o.paused) {
+                      // if that other audio had ducked background players, restore volumes
+                      if (o.dataset.ducked) {
+                        const otherMusic = document.getElementById('musicPlayer');
+                        try { if (bgm && typeof bgm.dataset.prevVolume !== 'undefined') { bgm.volume = parseFloat(bgm.dataset.prevVolume); delete bgm.dataset.prevVolume; } } catch(e){}
+                        try { if (otherMusic && typeof otherMusic.dataset.prevVolume !== 'undefined') { otherMusic.volume = parseFloat(otherMusic.dataset.prevVolume); delete otherMusic.dataset.prevVolume; } } catch(e){}
+                        o.dataset.ducked = '';
+                      }
+                      o.pause();
+                      const otherBtn = o.closest('.chapter-article')?.querySelector('.wv-play');
+                      if (otherBtn) otherBtn.textContent = '▶';
+                    }
+                  } catch(e){}
+                });
+                // duck background music and any musicPlayer (store previous volumes if not already stored)
+                try {
+                  const otherMusic = document.getElementById('musicPlayer');
+                  if (bgm && typeof bgm.dataset.prevVolume === 'undefined') bgm.dataset.prevVolume = String(typeof bgm.volume !== 'undefined' ? bgm.volume : 1);
+                  if (otherMusic && typeof otherMusic.dataset.prevVolume === 'undefined') otherMusic.dataset.prevVolume = String(typeof otherMusic.volume !== 'undefined' ? otherMusic.volume : 1);
+                } catch(e){}
+                try { if (bgm) bgm.volume = 0.15; const otherMusic = document.getElementById('musicPlayer'); if (otherMusic) otherMusic.volume = 0.15; } catch(e){}
+                audioElLocal.play().catch(()=>{});
+                playBtnLocal.textContent = '⏸';
+                audioElLocal.dataset.ducked = 'true';
+              } else {
+                audioElLocal.pause();
+                playBtnLocal.textContent = '▶';
+                // restore bgm and musicPlayer only if this audio had ducked them
+                try {
+                  const otherMusic = document.getElementById('musicPlayer');
+                  if (bgm && audioElLocal.dataset.ducked && typeof bgm.dataset.prevVolume !== 'undefined') { bgm.volume = parseFloat(bgm.dataset.prevVolume); delete bgm.dataset.prevVolume; }
+                  if (otherMusic && audioElLocal.dataset.ducked && typeof otherMusic.dataset.prevVolume !== 'undefined') { otherMusic.volume = parseFloat(otherMusic.dataset.prevVolume); delete otherMusic.dataset.prevVolume; }
+                } catch(e){}
+                audioElLocal.dataset.ducked = '';
+              }
+            });
+            audioElLocal.addEventListener('ended', ()=>{
+              const bgm = document.getElementById('bgm');
+              try {
+                const otherMusic = document.getElementById('musicPlayer');
+                if (bgm && audioElLocal.dataset.ducked && typeof bgm.dataset.prevVolume !== 'undefined') { bgm.volume = parseFloat(bgm.dataset.prevVolume); delete bgm.dataset.prevVolume; }
+                if (otherMusic && audioElLocal.dataset.ducked && typeof otherMusic.dataset.prevVolume !== 'undefined') { otherMusic.volume = parseFloat(otherMusic.dataset.prevVolume); delete otherMusic.dataset.prevVolume; }
+              } catch(e){}
+              const pb = aEl.querySelector('.wv-play'); if (pb) pb.textContent = '▶';
+              audioElLocal.dataset.ducked = '';
+            });
+          })(articleEl);
+        });
+
+  // insert wrapper in place of original element; per-line article panels already appended into wrapper
+  el.parentNode.replaceChild(wrapper, el);
+    });
+    })();
   }
 
   if (page === "game") {
@@ -547,6 +822,18 @@ function toggleDream(i) {
   } else {
     content.style.maxHeight = content.scrollHeight + "px";
   }
+
+  // 同步 header 按钮的图标 (icon) 显示：找到对应的 .dream-item 并切换其 .detail-icon
+  try {
+    const item = content.closest('.dream-item');
+    if (item) {
+      const headerIcon = item.querySelector('.dream-detail-btn .detail-icon');
+      if (headerIcon) {
+        const open = content.style.maxHeight && content.style.maxHeight !== '0px';
+        headerIcon.textContent = open ? '▴' : '▾';
+      }
+    }
+  } catch (e) { /* ignore if not found */ }
 }
 
 /* 游戏逻辑（与原始版本相同） */
