@@ -178,24 +178,20 @@ const CONFIG = {
   maxFalling: 8
 };
 
-/* ========== 台词（根据选择的头像显示不同文本） ========== */
-const DIALOGUES = {
-  pic1: {
-    name: "萧小五",
-    lines: [
-      "你今天也很好看。",
-      "靠近一点，让我看看你。"
-    ]
-  },
-  pic2: {
-    name: "兔子小姐",
-    lines: [
-      "你来啦，我就知道你会来。",
-      "想我了吗？"
-    ]
-  }
-};
+/* 小工具：随机与限制（确保在文件内尽早定义，以免被其它函数调用时未找到） */
+function rand(min,max){ return Math.random()*(max-min)+min }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)) }
 
+// 设备震动的兼容包装：接受数字或振动数组，若浏览器支持则调用
+function tryVibrate(pattern){
+  try{
+    if (navigator && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(pattern);
+    }
+  }catch(e){}
+}
+
+// 你的图片绑定台词
 const PHOTO_DIALOGUES = {
   'xy1.jpg': '我的爱人，希望我能透过屏幕去触摸你',
   'xy2.jpg': '权和钱这一块还得论哥',
@@ -205,115 +201,66 @@ const PHOTO_DIALOGUES = {
   'lc3.jpg': '熊熊来打工啦，cosplay警察。小样，迷倒你了吧'
 };
 
-/* ================== 画布与资源初始化 ================== */
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-let W = canvas.width = window.innerWidth;
-let H = canvas.height = window.innerHeight;
-
-/* HUD 元素 */
-const scoreEl = document.getElementById('score');
-const progressBar = document.getElementById('progressBar');
-const dialogBox = document.getElementById('dialogBox');
-const dialogPic = document.getElementById('dialogPic');
-const dialogName = document.getElementById('dialogName');
-const dialogLine = document.getElementById('dialogLine');
-const startOverlay = document.getElementById('startOverlay');
-const startBtn = document.getElementById('startBtn');
-const starsLayer = document.getElementById('starsLayer');
-
-// 开始页默认显示（不自动隐藏）
-
-/* ========== 音效与振动（SFX） ========== */
-const SFX_VOLUME = 0.6; // 所有音效统一音量（0.0 - 1.0）
-const bgmEl = document.getElementById('bgm');
-try{ if (bgmEl) bgmEl.volume = 0.45; } catch(e){}
-
-const sfx = {
-  coin: new Audio(CONFIG.imagesPath + 'coin1.mp3'),
-  coin2: new Audio(CONFIG.imagesPath + 'coin2.mp3'),
-  bomb: new Audio(CONFIG.imagesPath + 'bomb.mp3')
+// 默认角色台词池，防止 DIALOGUES 未定义报错
+const DIALOGUES = {
+  pic1: {
+    name: "萧小五",
+    lines: [
+      "你又来啦，今天也要加油哦！",
+      "别忘了带上你的好运气。",
+      "星光下的你最美。"
+    ]
+  },
+  pic2: {
+    name: "兔子小姐",
+    lines: [
+      "和你一起的时光总是很快。",
+      "别担心，有我在呢！",
+      "今天也要元气满满！"
+    ]
+  }
 };
-Object.values(sfx).forEach(a=>{ a.preload = 'auto'; a.volume = SFX_VOLUME; a.crossOrigin = 'anonymous'; });
+/* 基本全局初始化：确保 canvas、宽高与常用全局变量在被其它函数使用前存在。 */
+// Canvas / 尺寸
+var gameCanvasEl = document.getElementById('gameCanvas');
+var ctx = gameCanvasEl ? gameCanvasEl.getContext('2d') : null;
+var W = window.innerWidth;
+var H = window.innerHeight;
+if (gameCanvasEl) { gameCanvasEl.width = W; gameCanvasEl.height = H; }
+window.addEventListener('resize', ()=>{ W = gameCanvasEl ? (gameCanvasEl.width = window.innerWidth) : window.innerWidth; H = gameCanvasEl ? (gameCanvasEl.height = window.innerHeight) : window.innerHeight; });
 
-// Combo 系统（只统计连续收金币，炸弹清零）
-let combo = 0;
-let comboTimer = null;
-const COMBO_TIMEOUT = 1500; // ms
-const comboEl = document.getElementById('combo');
-function increaseCombo(){
-  combo++;
-  if(comboEl) comboEl.textContent = '连击 ×' + combo;
-  clearTimeout(comboTimer);
-  comboTimer = setTimeout(()=>{ combo = 0; if(comboEl) comboEl.textContent = '连击 ×1'; }, COMBO_TIMEOUT);
-}
-function resetCombo(){ combo = 0; clearTimeout(comboTimer); if(comboEl) comboEl.textContent = '连击 ×1'; }
+// 常用的场景数组与状态变量（防止未声明导致的 ReferenceError）
+var coins = [];
+var fallingItems = [];
+var particles = [];
+var basket = { x: Math.max(8, W/2 - 44), y: H - 100, w: 88, h: 48, img: null };
+// 载入篮子图片（若缺失会在控制台报告），确保绘制时可用
+try {
+  basket.img = new Image();
+  basket.img.src = CONFIG.imagesPath + (CONFIG.basketFile || 'basket.png');
+  basket.img.onerror = function(){ console.warn('basket image failed to load:', this.src); };
+} catch(e){ console.warn('basket image init error', e); }
+var score = 0, progress = 0;
+var paused = false, running = false;
+var spawnTimer = null, itemSpawnTimer = null, logicTimer = null, rafId = null, animReq = null;
 
+// 快捷 DOM 引用（若尚未挂载则为 null，使用时需做防御性检查）
+var scoreEl = document.getElementById('score');
+var progressBar = document.getElementById('progressBar');
+var startBtn = document.getElementById('startBtn');
+var startOverlay = document.getElementById('startOverlay');
+var starsLayer = document.getElementById('starsLayer');
+var comboEl = document.getElementById('combo');
+
+// 连击计数（默认 1）与相关操作
+var comboCount = 1;
+function updateComboUI(){ if(comboEl) comboEl.textContent = '连击 ×' + (comboCount || 1); }
+function increaseCombo(){ comboCount = (comboCount || 1) + 1; updateComboUI(); }
+function resetCombo(){ comboCount = 1; updateComboUI(); }
 function getMultiplier(){
-  // multiplier grows with combo but caps to 5x
-  return Math.max(1, Math.min(5, Math.floor(combo/3) + 1));
-}
-
-// 震动封装（兼容性）
-function tryVibrate(ms){ if (navigator && navigator.vibrate) try{ navigator.vibrate(ms); } catch(e){} }
-
-/* 游戏状态 */
-let coins = [];
-let particles = [];
-let fallingItems = []; // 新增：通用掉落物（bomb / xxxz / chxz）
-let score = 0;
-let dialogVisible = false;
-let progress = 0;
-let running = false;
-let spawnTimer = null;
-let itemSpawnTimer = null;
-let animReq = null;
-let logicTimer = null;
-let rafId = null; // <- 新增：用于 requestAnimationFrame 循环标识
-let paused = false; // 新增：暂停开关
-// 记录用于检测每10分触发一次对话的状态（使用 prev/current tick 计算）
-let lastScoreTick = Math.floor(score / 10);
-
-/* 篮子 */
-const basket = {
-  x: W/2 - 80,
-  y: H - 140,
-  w: 160,
-  h: 90,
-  img: null
-};
-
-/* 尝试加载篮子图（若不存在则使用矩形） */
-const basketImg = new Image();
-basketImg.src = CONFIG.imagesPath + CONFIG.basketFile;
-basketImg.onload = ()=> basket.img = basketImg;
-basketImg.onerror = ()=> basket.img = null;
-
-/* 预加载金币图（可选） */
-const randomCoin = CONFIG.coinFiles[Math.floor(Math.random() * CONFIG.coinFiles.length)];
-const coin = document.createElement("img");
-coin.src = CONFIG.imagesPath + randomCoin;
-
-/* ========== 工具函数 ========== */
-function rand(min,max){ return Math.random()*(max-min)+min }
-function clamp(v,a,b){ return Math.max(a, Math.min(b, v)) }
-
-/* ========== 金币生成与粒子效果 ========== */
-function spawnCoin(filename) {
-  if (coins.length > CONFIG.maxCoins) return;
-  const size = rand(30, 56);
-  const x = rand(20, W - 20 - size);
-  const y = -size;
-  const speed = rand(2.5, 5.0);
-  const rot = rand(-0.4, 0.4);
-
-  const file = filename || CONFIG.coinFiles[Math.floor(Math.random() * CONFIG.coinFiles.length)];
-  const img = new Image();
-  img.src = CONFIG.imagesPath + file;
-  img.onerror = () => { /* fallback handled in draw */ };
-
-  // 存储文件名以便绘制不同的发光
-  coins.push({ x, y, size, speed, rot, img, file });
+  // 简单倍率规则：每 3 连提高一级，最低 1，最高 6
+  const lvl = Math.floor((comboCount || 1) / 3);
+  return Math.min(6, Math.max(1, 1 + lvl));
 }
 
 /* 新增：生成掉落物（bomb / xxxz / chxz） */
@@ -329,7 +276,8 @@ function spawnFallingItem() {
   const size = rand(34, 62);
   const x = rand(20, W - 20 - size);
   const y = -size;
-  const speed = rand(2.8, 4.8);
+  // 放慢下落速度：降低掉落物的速度范围
+  const speed = rand(1.2, 2.6);
   const rot = rand(-0.4, 0.4);
   const img = new Image();
   img.src = CONFIG.imagesPath + pick.file;
@@ -340,6 +288,21 @@ function spawnFallingItem() {
     x, y, size, speed, rot, img,
     score: pick.score
   });
+}
+
+/* 生成金币（spawnCoin）：创建一个 coin 对象并加入 coins 队列 */
+function spawnCoin(filename) {
+  try {
+    if (coins.length >= CONFIG.maxCoins) return;
+    const size = Math.floor(rand(22, 48));
+    const x = rand(20, Math.max(40, W - 20 - size));
+    const y = -size;
+    const speed = rand(1.0, 2.4);
+    const rot = rand(-0.4, 0.4);
+    const file = filename || CONFIG.coinFiles[Math.floor(Math.random() * CONFIG.coinFiles.length)];
+    const img = new Image(); img.src = CONFIG.imagesPath + file; img.onerror = () => {};
+    coins.push({ x, y, size, speed, rot, img, file });
+  } catch (e) { /* 防御性：若出错则忽略 */ }
 }
 
 function spawnParticles(x,y,color='rgba(255,220,240,0.95)'){
@@ -413,32 +376,6 @@ function draw(){
     const gx = c.x + c.size/2;
     const gy = c.y + c.size/2;
     const rg = ctx.createRadialGradient(gx, gy, c.size*0.15, gx, gy, c.size*1.3);    // ...existing code...
-    /* start 按钮绑定（只触发开场特效与启动） */
-    startBtn.addEventListener('click', ()=>{
-      startOverlay.style.display = 'none';
-      playIntroEffectAndStart();
-      // 启动掉落物定时器
-      if (itemSpawnTimer) clearInterval(itemSpawnTimer);
-      itemSpawnTimer = setInterval(spawnFallingItem, Math.max(1200, CONFIG.spawnInterval * 1.1));
-    });
-    // ...existing code...    // ...existing code...
-    /* start 按钮绑定（只触发开场特效与启动） */
-    startBtn.addEventListener('click', ()=>{
-      startOverlay.style.display = 'none';
-      playIntroEffectAndStart();
-      // 启动掉落物定时器
-      if (itemSpawnTimer) clearInterval(itemSpawnTimer);
-      itemSpawnTimer = setInterval(spawnFallingItem, Math.max(1200, CONFIG.spawnInterval * 1.1));
-    });
-    // ...existing code...    // ...existing code...
-    /* start 按钮绑定（只触发开场特效与启动） */
-    startBtn.addEventListener('click', ()=>{
-      startOverlay.style.display = 'none';
-      playIntroEffectAndStart();
-      // 启动掉落物定时器
-      if (itemSpawnTimer) clearInterval(itemSpawnTimer);
-      itemSpawnTimer = setInterval(spawnFallingItem, Math.max(1200, CONFIG.spawnInterval * 1.1));
-    });
     // ...existing code...
     rg.addColorStop(0, glow);
     rg.addColorStop(0.6, 'rgba(0,0,0,0)');
@@ -549,7 +486,7 @@ function onFallingItemCollected(it, cx, cy){
     enqueueDialog({
       imgSrc: CONFIG.imagesPath + ([...CONFIG.pic1Files, ...CONFIG.pic2Files][Math.floor(Math.random() * (CONFIG.pic1Files.length + CONFIG.pic2Files.length))]),
       name: '男主',
-      text: ['【男主A】…我劝你别再乱接了。','【男主B】…你这样我会担心的。','【男主A】…笨蛋，炸弹不能接啊。','【男主B】…过来，我教你怎么玩。'][Math.floor(Math.random()*4)],
+      text: ['…我劝你别再乱接了。','…你这样我会担心的。','…笨蛋，炸弹不能接啊。','…过来，我教你怎么玩。'][Math.floor(Math.random()*4)],
       bg: 'rgba(0,0,0,0.64)',
       nameColor: '#FFD700',
       duration: 2000,
@@ -754,10 +691,11 @@ function triggerDialogue() {
 
 /* ========== 轻量非阻塞临时对话（替代 alert） ========== */
 // 对话队列（确保对话顺序：bomb 优先）
-const dialogQueue = [];
-let dialogProcessing = false;
+var dialogQueue = [];
+var dialogProcessing = false;
 
 function enqueueDialog(options, priority = false){
+  if (!dialogQueue) dialogQueue = [];
   if(priority) dialogQueue.unshift(options);
   else dialogQueue.push(options);
   processDialogQueue();
@@ -853,10 +791,10 @@ function showTempDialog(options){ enqueueDialog(options, false); }
 /* 新增：男主对白（接到 bomb 时触发） */
 function showMaleLeadDialogue() {
   const lines = [
-    "【男主A】…我劝你别再乱接了。",
-    "【男主B】…你这样我会担心的。",
-    "【男主A】…笨蛋，炸弹不能接啊。",
-    "【男主B】…过来，我教你怎么玩。"
+    "…我劝你别再乱接了。",
+    "…你这样我会担心的。",
+    "…笨蛋，炸弹不能接啊。",
+    "…过来，我教你怎么玩。"
   ];
   const line = lines[Math.floor(Math.random() * lines.length)];
   // 随机取 pic1 或 pic2 池里面的一张图（兼容原配置）
@@ -945,8 +883,8 @@ function update() {
   // fallingItems 更新 — 使用你提供的行为，注意修正 basket.width -> basket.w
   for (let i = fallingItems.length - 1; i >= 0; i--) {
     const it = fallingItems[i];
-    // 固定速度 3（你示例中用 3），但保留原 speed 如果需要可替换为 it.speed
-    it.y += 3;
+  // 使用物件自身的 speed，使其遵循 spawn 时的设定（并且较慢）
+  it.y += (it.speed || 2);
 
     const hit =
       it.y + it.size > basket.y &&
@@ -1017,10 +955,10 @@ window.addEventListener("pageshow", () => {
   const lastPlayed = localStorage.getItem("lastScore");
   if (lastPlayed) {
     const lines = [
-      "【男主A】…又回来了？我还以为你不要我了。",
-      "【男主B】…这么快就回首页？我还没跟你玩够。",
-      "【男主A】…你的游戏成绩我都看到了，很可爱。",
-      "【男主B】…回来就好，我还以为你迷路了。"
+      "…又回来了？我还以为你不要我了。",
+      "…这么快就回首页？我还没跟你玩够。",
+      "…你的游戏成绩我都看到了，很可爱。",
+      "…回来就好，我还以为你迷路了。"
     ];
     const line = lines[Math.floor(Math.random() * lines.length)];
     // 随机图片
@@ -1050,9 +988,38 @@ startBtn.addEventListener('click', ()=>{
 // resetStartBtn 用来清除 startClicked，使开始覆盖页再次可见（便于调试或恢复）
 const resetStartBtn = document.getElementById('resetStartBtn');
 if (resetStartBtn) {
+  // 点击“重置开始页”时：彻底停止游戏、清理定时器与动画、重置状态并显示开始覆盖层
   resetStartBtn.addEventListener('click', ()=>{
     try{ localStorage.removeItem('startClicked'); }catch(e){}
+
+    // 停止运行状态与暂停标志
+    paused = false;
+    running = false;
+
+    // 清理所有可能存在的定时器与 RAF
+    try{ if (spawnTimer) { clearInterval(spawnTimer); spawnTimer = null; } } catch(e){}
+    try{ if (itemSpawnTimer) { clearInterval(itemSpawnTimer); itemSpawnTimer = null; } } catch(e){}
+    try{ if (logicTimer) { clearInterval(logicTimer); logicTimer = null; } } catch(e){}
+    try{ if (rafId) { cancelAnimationFrame(rafId); rafId = null; } } catch(e){}
+    try{ if (animReq) { cancelAnimationFrame(animReq); animReq = null; } } catch(e){}
+
+    // 清空场景元素
+    coins.length = 0;
+    fallingItems.length = 0;
+    particles.length = 0;
+
+    // 重置分数/进度/连击
+    score = 0; progress = 0; resetCombo(); scoreElUpdate();
+
+    // 重置篮子位置
+    basket.x = Math.max(8, Math.min(W - basket.w - 8, W/2 - basket.w/2));
+
+  // 重置静音面板为初始状态（展开收起、取消静音、重置音量）
+  try{ if (typeof resetMutePanelToInitial === 'function') resetMutePanelToInitial(); } catch(e){}
+
+    // 显示开始覆盖层（回到开始）
     startOverlay.style.display = 'flex';
+
     // small visual hint
     resetStartBtn.textContent = '已重置';
     setTimeout(()=> resetStartBtn.textContent = '重置开始页', 1200);
@@ -1079,52 +1046,137 @@ document.getElementById("resumeBtn").onclick = () => {
   document.getElementById("pauseBtn").style.display = "inline-block";
 };
 </script>
-<!-- 背景音乐 -->
+<!-- 背景音乐（单一元素） -->
 <audio id="bgm" src="audio4.mp3" autoplay loop></audio>
 
-<!-- 静音按钮 -->
-<div id="muteButton">🔊</div>
+<!-- 静音按钮（紧凑）与右侧歌单 -->
+<div id="mutePanel" aria-label="音乐控制" style="position:fixed;top:12px;right:12px;z-index:10000;display:flex;align-items:center;gap:8px;">
+  <div id="muteButton" title="静音/取消静音" aria-pressed="false" role="button">🔊</div>
+  <button id="expandToggle" aria-expanded="false" title="展开歌单" aria-label="展开歌单"></button>
+  <div id="musicPanel" aria-hidden="true">
+    <ul id="playlist">
+      <!-- 歌单：由 index2.html 中的曲目同步填入（无封面，仅文本） -->
+      <li data-src="audio1.mp3" data-name="约定之初">约定之初</li>
+      <li data-src="audio2.mp3" data-name="彼时的天空">彼时的天空</li>
+      <li data-src="audio3.mp3" data-name="怪诞曲">怪诞曲</li>
+      <li data-src="audio4.mp3" data-name="日日夜夜" class="active">日日夜夜</li>
+      <li data-src="audio5.mp3" data-name="到明天去">到明天去</li>
+      <li data-src="audio6.mp3" data-name="思念絮语bgm">思念絮语bgm</li>
+    </ul>
+  </div>
+</div>
 
 <style>
-#muteButton {
+/* 歌单样式 */
+#musicPanel{ position:absolute; top:52px; right:0; width:260px; max-height:320px; overflow:auto; padding:8px; border-radius:12px; background: rgba(255,255,255,0.95); box-shadow:0 12px 36px rgba(0,0,0,0.45); display:none; }
+#playlist{ list-style:none; margin:0; padding:6px; display:flex;flex-direction:column; gap:6px; }
+#playlist li{ padding:8px 10px; border-radius:8px; cursor:pointer; background:rgba(0,0,0,0.04); color:#111; font-weight:600 }
+#playlist li:hover{ background:rgba(0,0,0,0.08); }
+#playlist li.active{ background:linear-gradient(90deg,#ffd86a,#ff9ad6); color:#fff }
+#expandToggle{ width:36px;height:36px;border-radius:10px;border:none;background:rgba(255,255,255,0.85);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.12); }
+#expandToggle svg{ width:16px;height:16px;fill:#2b2b2b }
+
+/* 恢复 index.html 中的静音按钮样式（右上圆形按钮） */
+#muteButton, .music-btn {
   position: fixed;
-  top: 15px;
-  right: 15px;
-  font-size: 28px;
+  top: 20px;
+  right: 20px;
+  width: 55px;
+  height: 55px;
+  background: #ffe6f2;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(255, 180, 210, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
   cursor: pointer;
+  animation: float 3s ease-in-out infinite;
+  transition: .3s;
+  font-size: 26px;
+  user-select: none;
   z-index: 9999;
-  background: rgba(255,255,255,0.7);
-  padding: 6px 10px;
-  border-radius: 12px;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
-  transition: 0.2s;
 }
-#muteButton:hover {
-  transform: scale(1.1);
-  background: rgba(255,255,255,0.9);
-}
+#muteButton:hover, .music-btn:hover { transform: scale(1.1); background: #ffd4ea; }
+
+@media (max-width:420px){ #musicPanel{ right:6px; width:200px } }
+
+/* 覆盖位置：将静音按钮置于展开按钮的左侧（都在右上），便于快速切换 */
+#muteButton{ right:76px; left:auto; position:fixed; top:20px; z-index:10002; }
+#expandToggle{ position:fixed; top:20px; right:20px; z-index:10001; width:44px; height:44px; border-radius:10px }
 </style>
 
 <script>
-// 自动播放（需要任意一次点击即可激活）
-document.addEventListener("click", function () {
-  const bgm = document.getElementById("bgm");
-  if (bgm.paused) bgm.play();
-}, { once: true });
+// Ensure the audio element is available and create a global bgmEl identifier
+const _bgm = document.getElementById('bgm');
+window.bgmEl = _bgm;
+var bgmEl = window.bgmEl;
 
-const bgm = document.getElementById("bgm");
-const muteBtn = document.getElementById("muteButton");
-try{ if (bgm) bgm.volume = 0.45; } catch(e){}
-
-muteBtn.addEventListener("click", () => {
-  if (bgm.muted) {
-    bgm.muted = false;
-    muteBtn.textContent = "🔊";
-  } else {
-    bgm.muted = true;
-    muteBtn.textContent = "🔇";
+// 尝试自动播放 bgm（若浏览器阻止自动播放则采用降级：先静音播放，再在首次交互后取消静音）
+try {
+  if (bgmEl) {
+    const tryPlay = () => bgmEl.play();
+    tryPlay().catch(()=>{
+      try {
+        bgmEl.muted = true;
+        bgmEl.play().catch(()=>{});
+        const unmuteOnce = () => { bgmEl.muted = false; try { bgmEl.play().catch(()=>{}); } catch(e){} window.removeEventListener('pointerdown', unmuteOnce); window.removeEventListener('keydown', unmuteOnce); };
+        window.addEventListener('pointerdown', unmuteOnce, { once: true });
+        window.addEventListener('keydown', unmuteOnce, { once: true });
+      } catch(e){}
+    });
   }
+} catch(e){}
+
+const muteButtonEl = document.getElementById('muteButton');
+const expandToggleEl = document.getElementById('expandToggle');
+const musicPanelEl = document.getElementById('musicPanel');
+const playlistEl = document.getElementById('playlist');
+
+// 若 li 内只设置了 data-name 而没有文本，填充显示文本（让用户输入的歌名可见）
+if (playlistEl) {
+  Array.from(playlistEl.children).forEach(li => {
+    if (!li.textContent || li.textContent.trim() === '') {
+      const n = li.getAttribute('data-name') || li.getAttribute('data-src') || '';
+      li.textContent = n;
+    }
+  });
+}
+
+function updateMuteUI(){
+  const t = window.bgmEl || _bgm;
+  if (!t) return;
+  muteButtonEl.textContent = t.muted ? '🔇' : '🔊';
+  muteButtonEl.setAttribute('aria-pressed', t.muted ? 'true' : 'false');
+}
+updateMuteUI();
+
+muteButtonEl.addEventListener('click', ()=>{
+  const t = window.bgmEl || _bgm; if (!t) return; t.muted = !t.muted; updateMuteUI();
 });
+
+expandToggleEl.innerHTML = ` <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"></path></svg>`;
+expandToggleEl.addEventListener('click', ()=>{
+  const expanded = expandToggleEl.getAttribute('aria-expanded') === 'true';
+  expandToggleEl.setAttribute('aria-expanded', (!expanded).toString());
+  if (expanded) { musicPanelEl.style.display = 'none'; musicPanelEl.setAttribute('aria-hidden', 'true'); }
+  else { musicPanelEl.style.display = 'block'; musicPanelEl.setAttribute('aria-hidden', 'false'); }
+});
+
+playlistEl.addEventListener('click', (ev)=>{
+  const li = ev.target.closest('li'); if(!li) return; const src = li.getAttribute('data-src') || ''; if(!src) return; const t = window.bgmEl || _bgm; if(!t) return;
+  try{
+    if (t.src && t.src.indexOf(src) !== -1) { if (t.paused) t.play().catch(()=>{}); }
+    else { t.src = src; t.load(); t.play().catch(()=>{}); }
+  }catch(e){}
+  Array.from(playlistEl.children).forEach(x=>x.classList.remove('active'));
+  li.classList.add('active');
+});
+
+// reset helper
+function resetMutePanelToInitial(){
+  const t = window.bgmEl || _bgm; if (t) { t.muted = false; t.currentTime = 0; try { t.play().catch(()=>{}); } catch(e){} }
+  updateMuteUI(); musicPanelEl.style.display = 'none'; expandToggleEl.setAttribute('aria-expanded','false'); musicPanelEl.setAttribute('aria-hidden','true'); Array.from(playlistEl.children).forEach(x=>x.classList.remove('active'));
+}
 </script>
 <!-- 页面显示时的欢迎（若存在 lastScore） -->
 <script>
@@ -1133,10 +1185,10 @@ window.addEventListener("pageshow", () => {
 
   if (lastPlayed) {
     const lines = [
-      "【男主A】…又回来了？我还以为你不要我了。",
-      "【男主B】…这么快就回首页？我还没跟你玩够。",
-      "【男主A】…你的游戏成绩我都看到了，很可爱。",
-      "【男主B】…回来就好，我还以为你迷路了。"
+      "…又回来了？我还以为你不要我了。",
+      "…这么快就回首页？我还没跟你玩够。",
+      "…你的游戏成绩我都看到了，很可爱。",
+      "…回来就好，我还以为你迷路了。"
     ];
     // 使用非阻塞临时对话替代阻塞 alert
     showTempDialog({
