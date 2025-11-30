@@ -22,7 +22,7 @@ body {
   overflow: hidden;
 }
 
-/* 樱花飘落 */
+/* 樱花飘落 *//* sakura decoration */
 @keyframes sakura {
   0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
   100% { transform: translateY(110vh) rotate(360deg); opacity: 0.3; }
@@ -37,12 +37,13 @@ body {
   opacity: 0.8;
 }
 
-/* 卡片 */
+/* 卡片 *//* card-bottom*/
 .card {
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(8px);
   border-radius: 25px;
   padding: 40px;
+  position: relative; /* 使卡片成为绝对定位子元素的参考（用于角落装饰图） */
   text-align: center;
   width: 80%;
   max-width: 390px;
@@ -60,6 +61,40 @@ h1 {
   font-size: 28px;
   margin-bottom: 15px;
 }
+
+/* 标题：单行显示，并在左右上角放置装饰图（中心对准边角点） */
+.title {
+  display: inline-block; /* 保持居中并可定位 */
+  position: relative;     /* 作为绝对定位子元素的参考 */
+  white-space: nowrap;    /* 强制单行 */
+}
+
+.title img.corner {
+  position: absolute;
+  top: 0;
+  transform: translate(-50%, -50%); /* 把图片中心对准元素的坐标点 */
+  width: 36px; /* 可根据需要调整大小，不改动其他布局 */
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.title img.corner.left { left: 0; }
+.title img.corner.right { left: 100%; }
+
+/* 卡片角落装饰图（中心对齐到卡片左上/右上角） */
+.card img.corner-card {
+  position: absolute;
+  top: 0;
+  transform: translate(-50%, -50%); /* 图片中心对准角点 */
+  width: 128px; /* 放大后的尺寸，可按需再调 */
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  z-index: 5; /* 置于卡片之上 */
+}
+.card img.corner-card.left { left: 0; }
+.card img.corner-card.right { left: 100%; }
 
 p {
   color: #6a5d6e;
@@ -87,7 +122,7 @@ button:hover {
 </head>
 <body>
 
-<!-- 樱花 15 片 -->
+<!-- 樱花 15 片 --><!-- detail sakura -->
 <script>
 for (let i = 0; i < 15; i++) {
   const sakura = document.createElement("div");
@@ -100,7 +135,9 @@ for (let i = 0; i < 15; i++) {
 </script>
 
 <div class="card">
-  <h1>🐱萧小五/兔子小姐🐰 の奇妙旅途</h1>
+  <img src="ywh.png" class="corner-card left" alt="" aria-hidden="true">
+  <h1 class="title">🐱萧小五/兔子小姐🐰 の奇妙旅途</h1>
+  <img src="mtlh.png" class="corner-card right" alt="" aria-hidden="true">
   <p>在樱花飘落的季节，我们即将踏上奇妙的冒险。</p>
    <button onclick="location.href='index2.html'">开始旅程</button>
 </div>
@@ -111,14 +148,14 @@ function start() {
 }
 </script>
 
-<!-- 背景音乐 -->
+<!-- 背景音乐 --><!-- bg music-->
 <audio id="bgm" src="audio1.mp3" autoplay loop></audio>
 
-<!-- 右上角音乐按钮（注意 class 名字！） -->
+<!-- 右上角音乐按钮 --> <!-- music bottom --> 
 <div id="muteButton" class="music-btn">🔊</div>
 
 <style>
-/* 右上角小按钮 */
+/* 右上角小按钮 *//* music bottom detail */
 .music-btn {
   position: fixed;
   top: 20px;
@@ -144,13 +181,13 @@ function start() {
   background: #ffd4ea;
 }
 
-/* 呼吸浮动动画 */
+/* 呼吸浮动动画 *//* sakura float animation */
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-6px); }
 }
 
-/* 播放时旋转动画 */
+/* 播放时旋转动画 *//* spining when the music is on */
 .playing {
   animation: spin 3s linear infinite, float 3s ease-in-out infinite;
 }
@@ -162,7 +199,7 @@ function start() {
 </style>
 
 <script>
-// 自动播放（需要任意一次点击）
+// 自动播放（需要任意一次点击）// Auto play music(need one tap)
 document.addEventListener("click", function () {
   const bgm = document.getElementById("bgm");
   if (bgm.paused) bgm.play();
@@ -171,15 +208,15 @@ document.addEventListener("click", function () {
 const bgm = document.getElementById("bgm");
 const muteBtn = document.getElementById("muteButton");
 
-// 点击静音 / 取消静音
+// 点击静音 / 取消静音// mute/unmute
 muteBtn.addEventListener("click", () => {
   if (bgm.muted) {
     bgm.muted = false;
-    muteBtn.textContent = "🔊";   // 声音开
+    muteBtn.textContent = "🔊";   // 声音开 // on
     muteBtn.classList.add('playing');
   } else {
     bgm.muted = true;
-    muteBtn.textContent = "🔇";   // 静音
+    muteBtn.textContent = "🔇";   // 静音. // mute
     muteBtn.classList.remove('playing');
   }
 });
