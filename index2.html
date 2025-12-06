@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>萧小五/兔子小姐の奇妙旅途 - 主页面</title>
 <style>
+:root{
+  --bg-1: #fff0f6;
+  --accent: #ff8fb7;
+  --accent-2: #ff70a5;
+  --card-bg: rgba(255,255,255,0.75);
+  --card-shadow: 0 8px 20px rgba(255, 180, 200, 0.45);
+}
 body {
   margin: 0;
   font-family: "Hiragino Maru Gothic Pro", "PingFang SC", sans-serif;
@@ -59,6 +66,10 @@ canvas { border-radius: 12px; width: 100%; }
   transition:0.18s;
 }
 #globalPlayBtn:hover, #muteButton:hover { transform: scale(1.06); background: rgba(255,255,255,0.95); }
+
+/* 顶部音频进度条（小条形） */
+.audio-progress{ position: absolute; right: 8px; top: 54px; width: 72px; height: 6px; background: rgba(255,255,255,0.4); border-radius: 999px; overflow:hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+.audio-progress i{ display:block; height:100%; width:0%; background: linear-gradient(90deg, rgba(255,140,170,0.95), rgba(255,110,150,0.95)); transition: width .12s linear; }
 
 #playerControls {
   display: flex;
@@ -213,9 +224,24 @@ canvas { border-radius: 12px; width: 100%; }
   .choice-btn { min-width: 140px; min-height: 60px; font-size:18px; padding:12px 18px; }
   .button-group.shift-up { transform: translateY(0); }
 }
+
+button {
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+button:active { transform: translateY(1px) scale(.99); }
+button::after{
+  content: ""; position: absolute; left:0; right:0; top:0; bottom:0;
+  border-radius: inherit; pointer-events:none; transition: opacity .28s;
+  opacity: 0;
+}
+button:focus{ outline: none; box-shadow: 0 0 0 6px rgba(255,140,170,0.14); }
 </style>
 </head>
 <body class="home">
+
+<div class="opening-note">希望你享受这个网站，欢迎提供宝贵的意见。您的欢乐就是我的动力。
+                                                                         ———— 餐椅哥
+</div>
 
 <h1 class="title">🐱萧小五/兔子小姐🐰 の奇妙旅途 🎵</h1>
 
@@ -233,6 +259,7 @@ canvas { border-radius: 12px; width: 100%; }
 <div id="topAudioControls">
   <button id="globalPlayBtn">▶</button>
   <button id="muteButton">🔊</button>
+  <div id="audioProgress" class="audio-progress" aria-hidden="true"><i></i></div>
 </div>
 
 <script>
@@ -935,6 +962,25 @@ if (bgmEl) {
 document.addEventListener("click", function () {
   if (bgmEl && bgmEl.paused) bgmEl.play().catch(()=>{});
 }, { once: true });
+
+// 顶部音频进度更新（显示正在播放的源：优先 musicEl，其次 bgmEl）
+const audioProgress = document.getElementById('audioProgress');
+function rafAudioProgress(){
+  try{
+    const target = (musicEl && musicEl.src && !musicEl.paused) ? musicEl : (bgmEl ? bgmEl : null);
+    if(audioProgress && audioProgress.firstElementChild){
+      const inner = audioProgress.firstElementChild;
+      if(target && target.duration && !isNaN(target.duration)){
+        const pct = (target.currentTime / target.duration) * 100;
+        inner.style.width = pct + '%';
+      } else {
+        inner.style.width = '0%';
+      }
+    }
+  }catch(e){}
+  requestAnimationFrame(rafAudioProgress);
+}
+requestAnimationFrame(rafAudioProgress);
 </script>
 </body>
 </html>
