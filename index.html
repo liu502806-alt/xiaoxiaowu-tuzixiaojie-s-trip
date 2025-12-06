@@ -6,6 +6,13 @@
 <title>萧小五/兔子小姐の奇妙旅途</title>
 
 <style>
+:root{
+  --bg-1: #fff0f6;
+  --accent: #ff8fb7;
+  --accent-2: #ff70a5;
+  --card-bg: rgba(255,255,255,0.75);
+  --card-shadow: 0 8px 20px rgba(255, 180, 200, 0.45);
+}
 body {
   background-image: url("indexbg.jpg"); 
   background-size: cover;
@@ -92,9 +99,28 @@ h1 {
   pointer-events: none;
   user-select: none;
   z-index: 5; /* 置于卡片之上 */
+  transition: transform .35s ease, filter .35s ease;
 }
 .card img.corner-card.left { left: 0; }
 .card img.corner-card.right { left: 100%; }
+
+/* 角装饰轻微浮动与 hover 效果 */
+.card:hover img.corner-card { transform: translate(-50%,-50%) scale(1.03); filter: drop-shadow(0 6px 12px rgba(0,0,0,0.08)); }
+
+
+/* 底部装饰：与顶部装饰参数一致，但锚点改为卡片底部 */
+.card img.corner-card.left.bottom {
+  bottom: 0;
+  top: auto;
+  transform: translate(-50%, 50%); /* 图片中心对准左下角 */
+  transform-origin: 0% 100%;
+}
+.card img.corner-card.right.bottom {
+  bottom: 0;
+  top: auto;
+  transform: translate(-50%, 50%); /* 图片中心对准右下角 */
+  transform-origin: 100% 100%;
+}
 
 p {
   color: #6a5d6e;
@@ -102,7 +128,7 @@ p {
 }
 
 button {
-  background: #ff8fb7;
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
   border: none;
   padding: 12px 30px;
   border-radius: 20px;
@@ -111,26 +137,37 @@ button {
   font-size: 18px;
   box-shadow: 0 5px 12px rgba(255, 130, 170, 0.4);
   cursor: pointer;
-  transition: 0.25s;
+  transition: transform .18s ease, box-shadow .18s ease, opacity .2s;
+  position: relative;
+  overflow: hidden;
 }
 
 button:hover {
-  background: #ff70a5;
   transform: translateY(-3px) scale(1.05);
+  opacity: 0.98;
 }
+
+button:active { transform: translateY(1px) scale(.99); }
+button:focus{ outline: none; box-shadow: 0 0 0 6px rgba(255,140,170,0.14); }
 </style>
 </head>
 <body>
 
-<!-- 樱花 15 片 --><!-- detail sakura -->
+<!-- 樱花飘落（增强版：随机大小、速度、延迟与透明度） -->
 <script>
-for (let i = 0; i < 15; i++) {
-  const sakura = document.createElement("div");
-  sakura.className = "sakura";
-  sakura.style.left = Math.random() * 100 + "vw";
-  sakura.style.animationDelay = Math.random() * 5 + "s";
-  sakura.innerHTML = "🌸";
-  document.body.appendChild(sakura);
+for (let i = 0; i < 22; i++) {
+  const s = document.createElement('div');
+  s.className = 'sakura';
+  const size = 12 + Math.random() * 32;
+  s.style.fontSize = size + 'px';
+  s.style.left = Math.random() * 100 + 'vw';
+  const dur = 5 + Math.random() * 6; // 5-11s
+  s.style.animation = `sakura ${dur}s linear infinite`;
+  s.style.animationDelay = Math.random() * 6 + 's';
+  s.style.opacity = 0.5 + Math.random() * 0.5;
+  s.style.transform = `translateY(-10vh) rotate(${Math.random()*360}deg)`;
+  s.innerText = '🌸';
+  document.body.appendChild(s);
 }
 </script>
 
@@ -139,7 +176,9 @@ for (let i = 0; i < 15; i++) {
   <h1 class="title">🐱萧小五/兔子小姐🐰 の奇妙旅途</h1>
   <img src="mtlh.png" class="corner-card right" alt="" aria-hidden="true">
   <p>在樱花飘落的季节，我们即将踏上奇妙的冒险。</p>
-   <button onclick="location.href='index2.html'">开始旅程</button>
+  <button onclick="location.href='index2.html'">开始旅程</button>
+  <img src="mtlh.png" class="corner-card left bottom" alt="" aria-hidden="true">
+  <img src="ywh.png" class="corner-card right bottom" alt="" aria-hidden="true">
 </div>
 
 <script>
@@ -152,7 +191,10 @@ function start() {
 <audio id="bgm" src="audio1.mp3" autoplay loop></audio>
 
 <!-- 右上角音乐按钮 --> <!-- music bottom --> 
-<div id="muteButton" class="music-btn">🔊</div>
+<div id="muteButton" class="music-btn" role="button" aria-label="音乐 控制">
+  <span id="musicProgress" class="music-progress" aria-hidden="true"></span>
+  <span class="music-icon">🔊</span>
+</div>
 
 <style>
 /* 右上角小按钮 *//* music bottom detail */
@@ -180,6 +222,20 @@ function start() {
   transform: scale(1.1);
   background: #ffd4ea;
 }
+
+.music-btn .music-icon{ position: relative; z-index: 2; }
+.music-progress{
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  height: 4px;
+  background: rgba(255,255,255,0.45);
+  border-radius: 999px;
+  overflow: hidden;
+  z-index: 1;
+}
+.music-progress::after{ content: ''; display:block; height:100%; width:0%; background: linear-gradient(90deg, rgba(255,140,170,0.9), rgba(255,110,150,0.95)); transition: width .12s linear; }
 
 /* 呼吸浮动动画 *//* sakura float animation */
 @keyframes float {
@@ -212,14 +268,50 @@ const muteBtn = document.getElementById("muteButton");
 muteBtn.addEventListener("click", () => {
   if (bgm.muted) {
     bgm.muted = false;
-    muteBtn.textContent = "🔊";   // 声音开 // on
+    // show icon and playing state
+    const icon = muteBtn.querySelector('.music-icon'); if(icon) icon.textContent = '🔊';
     muteBtn.classList.add('playing');
   } else {
     bgm.muted = true;
-    muteBtn.textContent = "🔇";   // 静音. // mute
+    const icon = muteBtn.querySelector('.music-icon'); if(icon) icon.textContent = '🔇';
     muteBtn.classList.remove('playing');
   }
 });
+
+// 音乐进度更新（用于视觉反馈）
+const musicProgressEl = document.getElementById('musicProgress');
+function updateMusicProgress(){
+  if(!musicProgressEl || !musicProgressEl.style) return;
+  const inner = musicProgressEl;
+  const bar = inner;
+  const pct = (bgm && bgm.duration && !isNaN(bgm.duration)) ? ((bgm.currentTime / bgm.duration) * 100) : 0;
+  // set width of pseudo by updating a CSS variable on element (we use ::after width via style)
+  musicProgressEl.style.setProperty('--pct', pct + '%');
+  musicProgressEl.style.setProperty('--w', pct + '%');
+  // directly update the ::after using inline style by setting a cssText on a child -- simpler: set width on dataset and reflect via style tag below
+  const after = musicProgressEl.querySelector(':after');
+}
+
+// Simpler: update inline style for the ::after replacement by setting a custom inner element width
+// Create an inner bar if not present
+(function ensureInnerBar(){
+  if(!musicProgressEl) return;
+  if(!musicProgressEl._inner){
+    const b = document.createElement('i');
+    b.style.display = 'block'; b.style.height = '100%'; b.style.width = '0%'; b.style.background = 'linear-gradient(90deg, rgba(255,140,170,0.95), rgba(255,110,150,0.95))'; b.style.transition = 'width .12s linear'; b.style.borderRadius = '999px';
+    musicProgressEl.appendChild(b);
+    musicProgressEl._inner = b;
+  }
+})();
+
+function rafLoop(){
+  if(bgm && musicProgressEl && musicProgressEl._inner){
+    const pct = (bgm.duration && !isNaN(bgm.duration)) ? ((bgm.currentTime / bgm.duration) * 100) : 0;
+    musicProgressEl._inner.style.width = pct + '%';
+  }
+  requestAnimationFrame(rafLoop);
+}
+requestAnimationFrame(rafLoop);
 </script>
 
 </body>
